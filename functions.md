@@ -55,7 +55,7 @@ args:
 * halfboundedlinesearch()
 * diffpoisson
 
-* tfocs() <-- main TFOCS function. called without arguments for default return
+* tfocs() <-- main TFOCS function. First called without arguments for default return
 calls tfocs, changes options for
 - alg = alg (argument)
 - maxmin = 1
@@ -67,6 +67,8 @@ calls tfocs, changes options for
 - autoRestart = fun
 
 - maxIts, tol , L0, Lexact, alpha, beta = changed in forloop
+
+line 174: tfocs({smoothop}, {outlinp,xlevel}, proxop, -level * 1, opts);
 
 
 ### jackdawlinop.m
