@@ -36,6 +36,20 @@ args:
 * numel() <-- matlab, number of array elements
 
 ### healernoninv.m
+* jackdawlinop
+
+
+calls tfocs, changes options for
+- alg = alg (argument)
+- maxmin = 1
+- restart = 5e5
+- countOps = 1
+- printStopCrit = 1
+- printEvery = 2500
+- restart = -10000000
+- autoRestart = fun
+
+- maxIts, tol , L0, Lexact, alpha, beta = changed in forloop
 
 #### TFOCS: 
 * tfocs (as script?)
@@ -51,4 +65,5 @@ createwindows()
 
 ## tfocs()
 
+* rmfield <-- matlab, remove field from structure
 
