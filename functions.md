@@ -37,7 +37,6 @@ args:
 
 ### halfboundedlinesearch.m
 
-
 ### healernoninv.m
 args:
     pattern
@@ -57,6 +56,18 @@ args:
 * diffpoisson
 
 * tfocs() <-- main TFOCS function. called without arguments for default return
+calls tfocs, changes options for
+- alg = alg (argument)
+- maxmin = 1
+- restart = 5e5
+- countOps = 1
+- printStopCrit = 1
+- printEvery = 2500
+- restart = -10000000
+- autoRestart = fun
+
+- maxIts, tol , L0, Lexact, alpha, beta = changed in forloop
+
 
 ### jackdawlinop.m
 conj() <-- matlab, compex conjugation
@@ -86,4 +97,5 @@ createwindows()
 
 ## tfocs()
 
+* rmfield <-- matlab, remove field from structure
 
