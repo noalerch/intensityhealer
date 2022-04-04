@@ -1,4 +1,4 @@
-#TFOCS functions & scripts to be rewritten
+# TFOCS functions & scripts to be analyzed & rewritten
 
 
 ## jackdaw
@@ -8,9 +8,9 @@
 
 ### createproxop.m
 args:
-  diffx
-  penalty
-  ourlinp <- function with 2 args
+    diffx
+    penalty
+    ourlinp <- function with 2 args
 
 * zero_tolerant_quad <-- jackdaw
 
@@ -19,9 +19,9 @@ args:
 
 ### createwindows.m
 args: 
-  pattern
-  mask
-  qbarrier
+    pattern
+    mask
+    qbarrier
 
 * getdims() <-- jackdaw
 * createfilter() <-- function declared inside createwindows.m
@@ -35,13 +35,48 @@ args:
 ### getdims.m
 * numel() <-- matlab, number of array elements
 
-### healernoninv.m
+### halfboundedlinesearch.m
 
-#### TFOCS: 
-* tfocs (as script?)
+
+### healernoninv.m
+args:
+    pattern
+    support
+    bkg
+    initguess
+    alg
+    numrounds
+    qbarrier
+    nzpenalty
+    iters
+    tols
+
+* getdims() <-- jackdaw
+* jackdawlinop()
+* halfboundedlinesearch()
+* diffpoisson
+
+* tfocs() <-- main TFOCS function. called without arguments for default return
+
+### jackdawlinop.m
+conj() <-- matlab, compex conjugation
+
+* features new function FFT2 helper() for TFOCS
+
+### replicates.m (script)
+* rng()
+
+* parfor <-- parallel for-loop
+
+* healernoninv()
+* clear
+
+
+## TFOCS: 
+* tfocs
 * 
 
-#### Other:
+## Other:
 norm (euclidean norm of vector)
 qbarrier() (passed as argument)
 createwindows()
