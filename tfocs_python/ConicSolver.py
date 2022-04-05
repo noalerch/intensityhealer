@@ -110,37 +110,86 @@ class ConicSolver:
                 g_Ay = [] # should be numpy array?
                 g_y = [] # see above
 
-        if g_y.empty():
-            if g_Ay.empty():
-                np.array[f_y, g_Ay] = apply_smooth(A_y)
+                if g_y.empty():
+                    if g_Ay.empty():
+                        np.array[f_y, g_Ay] = apply_smooth(A_y)
 
-            g_y = apply_linear(g_Ay, 2)
+                    g_y = apply_linear(g_Ay, 2)
 
-        step = 1 / (theta * L)
-        C_z, z = apply_projector(z_old - step * g_y, step)
-        A_z = apply_linear(z, 1)
+                step = 1 / (theta * L)
 
+                # FIXME: i do not understand this. moving on for now
+                np.array[C_z, z] = apply_projector(z_old - step * g_y, step)
+                A_z = apply_linear(z, 1)
 
+                # new iteration
+                if theta == 1:
+                    x = z
+                    A_x = A_z
+                    C_x = C_z
+
+                else:
+                    x = (1 - theta) * x_old + theta * z
+
+                    if counter_Ax >= self.counter_reset:
+                        counter_Ax = 0
+                        A_x = apply_linear(x, 1)
+                    else:
+                        counter_Ax += 1
+                        A_x = (1 - theta) * A_x_old + theta * A_z
+
+                    C_x = float('inf')
+
+                f_x = float('inf')
+                # TODO: should these be numpy arrays?
+                g_Ax = []
+                g_x = []
+
+                break_val = self.backtrack()
+                if break_val:
+                    break
+
+            break_val = self.iterate()
+            if break_val:
+                break
+
+    # based on tfocs_iterate.m script
+    def iterate(self) -> bool:
+        None
+
+    # TODO: backtracking in jackdaw should use Nettelblad's changed backtracking
+    #       script. Should this implementation only be based on that?
+    def backtrack(self) -> bool:
+        do_break = False
+        while True:
+
+            # quick exit for no backtracking (original tfocs_backtrack.m)
+            if self.beta >= 1:
+                do_break = True
+                break
+
+        return do_break
 
     # assuming countOps (?), see tfocs_initialize.m line 398
     # TODO: remove varagin?
     def apply_projector(self, varargin, projector_function):
         if self.count_ops:
-            TODO
+            None
 
         # false by default
         else:
-            projector_function(varargin)
+            return projector_function(varargin)
 
 
     def apply_linear(x, mode):
-        return solver_apply(3, linear_function, x, mode)
+        # this can't be right lol
+        return self.solver_apply(3, self.linear_function, x, mode)
 
     def solver_apply(self):
-        TODO
+        None
 
     def linear_function(self):
-        TODO
+        None
 
 
     # assumes mu > 0 & & ~isinf(Lexact) && Lexact > mu,
