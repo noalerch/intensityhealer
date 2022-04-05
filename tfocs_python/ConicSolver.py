@@ -3,7 +3,7 @@ import numpy as np
 
 
 class ConicSolver:
-    def __init__(self) -> object:
+    def __init__(self) -> None:
         # instance attributes taken from tfocs_initialize.m
         self.max_iterations = float('inf')
         self.max_counts = float('inf')
@@ -99,7 +99,7 @@ class ConicSolver:
                     y = (1 - theta) * x_old + theta * z_old
 
                     if counter_Ay >= self.counter_reset:
-                        A_y = apply_linear(y, 1)
+                        A_y = self.apply_linear(y, 1)
                         counter_Ay = 0
 
                     else:
@@ -112,15 +112,15 @@ class ConicSolver:
 
                 if g_y.empty():
                     if g_Ay.empty():
-                        np.array[f_y, g_Ay] = apply_smooth(A_y)
+                        np.array[f_y, g_Ay] = self.apply_smooth(A_y)
 
-                    g_y = apply_linear(g_Ay, 2)
+                    g_y = self.apply_linear(g_Ay, 2)
 
                 step = 1 / (theta * L)
 
                 # FIXME: i do not understand this. moving on for now
-                np.array[C_z, z] = apply_projector(z_old - step * g_y, step)
-                A_z = apply_linear(z, 1)
+                np.array[C_z, z] = self.apply_projector(z_old - step * g_y, step)
+                A_z = self.apply_linear(z, 1)
 
                 # new iteration
                 if theta == 1:
@@ -133,7 +133,7 @@ class ConicSolver:
 
                     if counter_Ax >= self.counter_reset:
                         counter_Ax = 0
-                        A_x = apply_linear(x, 1)
+                        A_x = self.apply_linear(x, 1)
                     else:
                         counter_Ax += 1
                         A_x = (1 - theta) * A_x_old + theta * A_z
@@ -153,6 +153,12 @@ class ConicSolver:
             if break_val:
                 break
 
+        self.cleanup()
+
+    # no idea what this method should do rofl
+    def cleanup(self):
+        None
+
     # based on tfocs_iterate.m script
     def iterate(self) -> bool:
         None
@@ -171,7 +177,7 @@ class ConicSolver:
         return do_break
 
     # assuming countOps (?), see tfocs_initialize.m line 398
-    # TODO: remove varagin?
+    # TODO: remove varargin?
     def apply_projector(self, varargin, projector_function):
         if self.count_ops:
             None
@@ -181,7 +187,7 @@ class ConicSolver:
             return projector_function(varargin)
 
 
-    def apply_linear(x, mode):
+    def apply_linear(self, x, mode):
         # this can't be right lol
         return self.solver_apply(3, self.linear_function, x, mode)
 
@@ -195,7 +201,6 @@ class ConicSolver:
     # assumes mu > 0 & & ~isinf(Lexact) && Lexact > mu,
     # see tfocs_initialize.m (line 532-) and healernoninv.m
     def advance_theta(self, theta_old: float):
-
         # TODO: calculating this inside theta expensive. move outside
         ratio = math.sqrt(self.mu / self.L_exact)
         theta_scale = (1 - ratio) / (1 + ratio)
