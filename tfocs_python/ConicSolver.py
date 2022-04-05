@@ -1,8 +1,9 @@
+import math
 import numpy as np
 
-class ConicSolver:
 
-    def __init__(self):
+class ConicSolver:
+    def __init__(self) -> object:
         # instance attributes taken from tfocs_initialize.m
         self.max_iterations = float('inf')
         self.max_counts = float('inf')
@@ -24,7 +25,7 @@ class ConicSolver:
         self.stop_criterion = 1
         self.alg = 'AT'
         self.restart = float('inf')
-        self.print_stop_criterion = False
+        self.print_stop_criteria = False
         self.counter_reset = -50
         self.cg_restart = float('inf')
         self.cg_type = 'pr'
@@ -48,7 +49,7 @@ class ConicSolver:
         L = self.L_0
         theta = float('inf')
         f_v_old = float('inf')
-        x = []
+        x = [] #FIXME: taken from matlab (TFOCS), should probably be number
         A_x = []
         f_x = float('inf')
         C_x = float('inf')
@@ -87,11 +88,22 @@ class ConicSolver:
 
             while True:
                 # acceleration
+                theta = self.advance_theta(theta_old)
 
-                # what is this?
-                theta = advance_theta(theta_old, L, L_old)
+                # next iteration
+                if theta < 1:
+                    y = (1 - theta) * x_old + theta * z_old
 
-    def advance_theta(self):
-        None
+
+
+
+    # assumes mu > 0 & & ~isinf(Lexact) && Lexact > mu,
+    # see tfocs_initialize.m and healernoninv.m
+    def advance_theta(self, theta_old: float):
+
+        # TODO: calculating this inside theta expensive. move outside
+        ratio = math.sqrt(self.mu / self.L_exact)
+        theta_scale = (1 - ratio) / (1 + ratio)
+        return min(1.0, theta_old, theta_scale)
 
 
