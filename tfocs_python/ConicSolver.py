@@ -116,17 +116,31 @@ class ConicSolver:
 
             g_y = apply_linear(g_Ay, 2)
 
+        step = 1 / (theta * L)
+        C_z, z = apply_projector(z_old - step * g_y, step)
+        A_z = apply_linear(z, 1)
 
+
+
+    # assuming countOps (?), see tfocs_initialize.m line 398
+    # TODO: remove varagin?
+    def apply_projector(self, varargin, projector_function):
+        if self.count_ops:
+            TODO
+
+        # false by default
+        else:
+            projector_function(varargin)
 
 
     def apply_linear(x, mode):
         return solver_apply(3, linear_function, x, mode)
 
     def solver_apply(self):
-        None
+        TODO
 
     def linear_function(self):
-        None
+        TODO
 
 
     # assumes mu > 0 & & ~isinf(Lexact) && Lexact > mu,
