@@ -89,6 +89,7 @@ class ConicSolver:
             L = L * self.alpha
             theta_old = theta
 
+            #FIXME: theta is Inf
             while True:
                 # acceleration
                 theta = self.advance_theta(theta_old)
@@ -101,6 +102,21 @@ class ConicSolver:
                         A_y = apply_linear(y, 1)
                         counter_Ay = 0
 
+                    else:
+                        counter_Ay += 1
+                        A_y = (1 - theta) * A_x_old + theta * A_z_old
+
+                f_y = float('inf')
+                g_Ay = [] # should be numpy array?
+                g_y = [] # see above
+
+        if g_y.empty():
+            if g_Ay.empty():
+                np.array[f_y, g_Ay] = apply_smooth(A_y)
+
+            g_y = apply_linear(g_Ay, 2)
+
+
 
 
     def apply_linear(x, mode):
@@ -112,8 +128,9 @@ class ConicSolver:
     def linear_function(self):
         None
 
+
     # assumes mu > 0 & & ~isinf(Lexact) && Lexact > mu,
-    # see tfocs_initialize.m and healernoninv.m
+    # see tfocs_initialize.m (line 532-) and healernoninv.m
     def advance_theta(self, theta_old: float):
 
         # TODO: calculating this inside theta expensive. move outside
