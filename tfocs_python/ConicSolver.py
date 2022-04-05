@@ -61,6 +61,9 @@ class ConicSolver:
         backtrack_tol = 1e-10
         backtrack_steps = 0
 
+        counter_Ay = 0
+        counter_Ax = 0
+
         # iteration values
         y = x
         z = x
@@ -94,8 +97,20 @@ class ConicSolver:
                 if theta < 1:
                     y = (1 - theta) * x_old + theta * z_old
 
+                    if counter_Ay >= self.counter_reset:
+                        A_y = apply_linear(y, 1)
+                        counter_Ay = 0
 
 
+
+    def apply_linear(x, mode):
+        return solver_apply(3, linear_function, x, mode)
+
+    def solver_apply(self):
+        None
+
+    def linear_function(self):
+        None
 
     # assumes mu > 0 & & ~isinf(Lexact) && Lexact > mu,
     # see tfocs_initialize.m and healernoninv.m
@@ -105,5 +120,3 @@ class ConicSolver:
         ratio = math.sqrt(self.mu / self.L_exact)
         theta_scale = (1 - ratio) / (1 + ratio)
         return min(1.0, theta_old, theta_scale)
-
-
