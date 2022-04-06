@@ -1,7 +1,6 @@
 import math
 import numpy as np
 
-
 class ConicSolver:
     def __init__(self) -> None:
         # instance attributes taken from tfocs_initialize.m
@@ -162,8 +161,31 @@ class ConicSolver:
         None
 
     # based on tfocs_iterate.m script
-    def iterate(self) -> bool:
-        None
+    # needs ridiculous number of arguments since MATLAB is unbearable
+    def iterate(self, n_iter, x, x_old, xy, A_x, A_y, f_y, g_Ax, g_Ay) -> bool:
+        status = ""
+
+        # test for positive stopping criteria
+        # TODO: check tfocs_iterate if this is correct norming
+        #       for instance, something about squared norm?
+        new_iter = n_iter + 1
+        norm_x = np.linalg.norm(x)
+        norm_dx = np.linalg.norm(x - x_old)
+
+        # not (yet?) implemented: legacy stopping criteria
+
+        # could use match-case which was introduced in Python 3.10
+        if np.isnan(f_y):
+            status = "NaN found -- aborting"
+        elif self.stop_criterion == 1 && norm_dx == 0:
+            if n_iter > 1:
+                status = "Step size tolerance reached (||dx||=0)"
+
+
+
+
+
+
 
     # TODO: backtracking in jackdaw should use Nettelblad's changed backtracking
     #       script. Should this implementation only be based on that?
