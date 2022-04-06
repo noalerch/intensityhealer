@@ -49,7 +49,9 @@ class ConicSolver:
         L = self.L_0
         theta = float('inf')
         f_v_old = float('inf')
-        x = [] #FIXME: taken from matlab (TFOCS), should probably be number
+
+        # TODO: investigate if empty lists should be numpy arrays instead
+        x = [] # FIXME: taken from matlab (TFOCS), should probably be number
         A_x = []
         f_x = float('inf')
         C_x = float('inf')
@@ -191,9 +193,11 @@ class ConicSolver:
         # this can't be right lol
         return self.solver_apply(3, self.linear_function, x, mode)
 
+    # TODO
     def solver_apply(self):
         None
 
+    # TODO
     def linear_function(self):
         None
 
