@@ -35,6 +35,9 @@ class ConicSolver:
         self.print_restart = True
         self.debug = False
 
+        # iterations start at 0
+        self.n_iter = 0
+
 
     def auslender_teboulle(self, smooth_func, affine_func, projector_func, x0):
         """Auslender & Teboulle's method
@@ -50,12 +53,13 @@ class ConicSolver:
         f_v_old = float('inf')
 
         # TODO: investigate if empty lists should be numpy arrays instead
-        x = [] # FIXME: taken from matlab (TFOCS), should probably be number
-        A_x = []
+        # x = [] # FIXME: taken from matlab (TFOCS), should probably be number
+        x = np.array([]) # Actually, should probably be NP array!
+        A_x = np.array([])
         f_x = float('inf')
         C_x = float('inf')
-        g_x = []
-        g_Ax = []
+        g_x = np.array([])
+        g_Ax = np.array([])
         restart_iter = 0
         warning_lipschitz = 0
         backtrack_simple = True
@@ -97,6 +101,8 @@ class ConicSolver:
 
                 # next iteration
                 if theta < 1:
+                    # TODO: what should z_old type be?
+                    #       what should y type be???
                     y = (1 - theta) * x_old + theta * z_old
 
                     if counter_Ay >= self.counter_reset:
@@ -108,12 +114,14 @@ class ConicSolver:
                         A_y = (1 - theta) * A_x_old + theta * A_z_old
 
                 f_y = float('inf')
-                g_Ay = [] # should be numpy array?
-                g_y = [] # see above
+                g_Ay = np.array([]) # should be numpy array?
+                g_y = np.array([]) # see above
 
-                if g_y.empty():
-                    if g_Ay.empty():
-                        np.array[f_y, g_Ay] = self.apply_smooth(A_y)
+                if g_y.size == 0:
+                    if g_Ay.size == 0:
+                        None
+                        # syntax makes no sense
+                        # np.array([f_y, g_Ay]) = self.apply_smooth(A_y)
 
                     g_y = self.apply_linear(g_Ay, 2)
 
@@ -162,28 +170,43 @@ class ConicSolver:
 
     # based on tfocs_iterate.m script
     # needs ridiculous number of arguments since MATLAB is unbearable
-    def iterate(self, n_iter, x, x_old, xy, A_x, A_y, f_y, g_Ax, g_Ay) -> bool:
+    def iterate(self, x, x_old, xy, A_x, A_y, f_y, g_Ax, g_Ay) -> bool:
         status = ""
 
         # test for positive stopping criteria
         # TODO: check tfocs_iterate if this is correct norming
         #       for instance, something about squared norm?
-        new_iter = n_iter + 1
+        new_iter = self.n_iter + 1
         norm_x = np.linalg.norm(x)
         norm_dx = np.linalg.norm(x - x_old)
 
-        # not (yet?) implemented: legacy stopping criteria
+        # legacy stopping criteria
+        if self.stop_criterion == 2 and self.beta >= 1:
+            # FIXME: looks stupid with self.y
+            xy = x - self.y
+            # xy_sq should be the square norm
+            # which if my linear algebra knowledge does not fail me (probably)
+            # is the dot product / inner product between the same vector twice
+            xy_sq  = np.dot(xy, xy)
 
         # could use match-case which was introduced in Python 3.10
+        # avoiding this due to compatibility issues
         if np.isnan(f_y):
             status = "NaN found -- aborting"
-        elif self.stop_criterion == 1 && norm_dx == 0:
-            if n_iter > 1:
+        elif self.stop_criterion == 1 and norm_dx == 0:
+            if self.n_iter > 1:
                 status = "Step size tolerance reached (||dx||=0)"
+        elif self.stop_criterion == 1 and norm_dx < self.tol * max(norm_x, 1):
+            status = "Step size tolerance reached"
+        # TODO: what is L?
+        elif self.stop_criterion == 2 and self.L * math.sqrt(xy_sq) < self.tol * max(norm_x, 1):
+            status = "Step size tolerance reached"
+        elif self.n_iter == self.max_iterations:
+            status = "Iteration limit reached"
 
-
-
-
+        # TODO: tfocs_count___ in matlab.. what does this mean
+        elif self.count_ops and   max() <= self.max_counts:
+            status = "Function/operator count limit reached"
 
 
 
