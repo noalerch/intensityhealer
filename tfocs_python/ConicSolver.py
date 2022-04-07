@@ -7,6 +7,7 @@ class ConicSolver:
         self.max_iterations = float('inf')
         self.max_counts = float('inf')
         self.count_ops = False
+        self.count = np.array([0, 0, 0, 0, 0])
         self.save_history = True
         self.adjoint = False
         self.saddle = False
@@ -151,14 +152,14 @@ class ConicSolver:
 
                 f_x = float('inf')
                 # TODO: should these be numpy arrays?
-                g_Ax = []
-                g_x = []
+                g_Ax = np.array([])
+                g_x = np.array([])
 
                 break_val = self.backtrack()
                 if break_val:
                     break
 
-            break_val = self.iterate()
+            break_val = self.iterate(x, x_old, xy, A_x, A_y, f_y, g_Ax, g_Ay)
             if break_val:
                 break
 
@@ -189,6 +190,7 @@ class ConicSolver:
             # is the dot product / inner product between the same vector twice
             xy_sq  = np.dot(xy, xy)
 
+        limit_reached = False
         # could use match-case which was introduced in Python 3.10
         # avoiding this due to compatibility issues
         if np.isnan(f_y):
@@ -203,10 +205,33 @@ class ConicSolver:
             status = "Step size tolerance reached"
         elif self.n_iter == self.max_iterations:
             status = "Iteration limit reached"
-
-        # TODO: tfocs_count___ in matlab.. what does this mean
-        elif self.count_ops and   max() <= self.max_counts:
+            limit_reached = True
+        elif self.count_ops and np.max(self.count) <= self.max_counts:
             status = "Function/operator count limit reached"
+            limit_reached = True
+        elif backtrack_steps > 0 and xy_sq == 0:
+            status = f"Unexpectedly small step size after {backtrack_steps} backtrack steps"
+
+        # for stop_crit 3, need new and old dual points
+        # TODO most of this. Left for now because not needed for COACS
+        if self.stop_criterion == 3 or self.stop_criterion == 4:
+            if not self.saddle:
+                raise "stop criterion {3, 4} requires a saddle point problem"
+
+        v_s_x = False
+        v_is_y = False
+
+        # FIXME: code unreadable
+        if (status == "" or limit_reached) and (self.stop_function != None
+                or self.restart < 0 or self.stop_criterion in [3, 4]):
+            need_dual = self.saddle and (self.stop_function != None or
+                                         self.stop_criterion in [3, 4])
+            comp_x = [np.isinf(f_x), need_doal]
+
+
+
+
+        return True # TODO
 
 
 
