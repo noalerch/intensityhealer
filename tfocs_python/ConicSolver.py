@@ -171,7 +171,8 @@ class ConicSolver:
 
     # based on tfocs_iterate.m script
     # needs ridiculous number of arguments since MATLAB is unbearable
-    def iterate(self, x, x_old, xy, A_x, A_y, f_y, g_Ax, g_Ay) -> bool:
+    def iterate(self, x, x_old, xy, A_x, A_y, f_y, g_Ax, g_Ay,
+                smooth_function) -> bool:
         status = ""
 
         # test for positive stopping criteria
@@ -183,7 +184,7 @@ class ConicSolver:
 
         # legacy stopping criteria
         if self.stop_criterion == 2 and self.beta >= 1:
-            # FIXME: looks stupid with self.y
+            # FIXME? looks stupid with self.y
             xy = x - self.y
             # xy_sq should be the square norm
             # which if my linear algebra knowledge does not fail me (probably)
@@ -200,7 +201,7 @@ class ConicSolver:
                 status = "Step size tolerance reached (||dx||=0)"
         elif self.stop_criterion == 1 and norm_dx < self.tol * max(norm_x, 1):
             status = "Step size tolerance reached"
-        # TODO: what is L?
+        # TODO: what is L? should this be L_exact?
         elif self.stop_criterion == 2 and self.L * math.sqrt(xy_sq) < self.tol * max(norm_x, 1):
             status = "Step size tolerance reached"
         elif self.n_iter == self.max_iterations:
@@ -218,18 +219,60 @@ class ConicSolver:
             if not self.saddle:
                 raise "stop criterion {3, 4} requires a saddle point problem"
 
+
+        ### Use function value for y instead of x if cheaper
+        ### This part determines computational cost before continuing
         v_s_x = False
         v_is_y = False
 
         # FIXME: code unreadable
-        if (status == "" or limit_reached) and (self.stop_function != None
-                or self.restart < 0 or self.stop_criterion in [3, 4]):
-            need_dual = self.saddle and (self.stop_function != None or
-                                         self.stop_criterion in [3, 4])
-            comp_x = [np.isinf(f_x), need_doal]
+        # TODO: ignoring this part for now, since COACS does not seem to
+        #       go here
+        #       might be worthwile to investigate further
+        # if (status == "" or limit_reached) and (self.stop_function != None
+        #        or self.restart < 0 or self.stop_criterion in [3, 4]):
+        #    need_dual = self.saddle and (self.stop_function != None or
+        #                                 self.stop_criterion in [3, 4])
+        #    # TODO: finish this part
+        #    comp_x = [np.isinf(f_x), need_dual]
 
+        # TODO: apply stop_criterion 3 if it has been requested
+        #       not yet imlemented since COACS uses default stop_crit
 
+        # Data collection
+        will_print = self.fid and self.print_every and (status != ""
+                            or self.n_iter % self.print_every != 0
+                            or (self.print_restart and just_restarted))
+        if self.save_history or will_print:
 
+            # De Morgan's law
+            if not (not (self.data_collection_always_use_x and not v_s_x) and not (not v_s_x and not v_is_y)):
+
+                f_x_save = f_x
+                g_Ax_save = g_Ax
+
+                if self.error_function is not None and self.saddle:
+                    if g_Ax is not None:
+                        None # TODO TODO TODO
+                        # ??? again, what in the world is this syntax
+                        # [f_X, g_Ax] = smoothF(A_x)
+
+                    cur_dual = g_Ax
+
+            if np.isinf(f_x):
+                f_x = smooth_function(A_x)
+
+            # this is a mess
+            if np.isinf(C_x):
+                C_x = projector_function(x)
+
+            # might be incorrect, if f_X and C_x are arrays
+            f_v = self.max_min * (f_x + C_x)
+            cur_pri = x # want better name but idk what this means
+            v_is_x = True
+            # Undo calculations
+            f_x = f_x_save
+            g_Ax = g_Ax_save
 
         return True # TODO
 
