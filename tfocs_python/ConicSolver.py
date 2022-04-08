@@ -182,14 +182,14 @@ class ConicSolver:
         norm_x = np.linalg.norm(x)
         norm_dx = np.linalg.norm(x - x_old)
 
+        xy_sq = 0 # placeholder
+
         # legacy stopping criteria
         if self.stop_criterion == 2 and self.beta >= 1:
             # FIXME? looks stupid with self.y
             xy = x - self.y
-            # xy_sq should be the square norm
-            # which if my linear algebra knowledge does not fail me (probably)
-            # is the dot product / inner product between the same vector twice
-            xy_sq  = np.dot(xy, xy)
+
+            xy_sq  = np.dot(xy, xy) # TODO: might be wrong
 
         limit_reached = False
         # could use match-case which was introduced in Python 3.10
@@ -201,6 +201,7 @@ class ConicSolver:
                 status = "Step size tolerance reached (||dx||=0)"
         elif self.stop_criterion == 1 and norm_dx < self.tol * max(norm_x, 1):
             status = "Step size tolerance reached"
+
         # TODO: what is L? should this be L_exact?
         elif self.stop_criterion == 2 and self.L * math.sqrt(xy_sq) < self.tol * max(norm_x, 1):
             status = "Step size tolerance reached"
@@ -243,9 +244,12 @@ class ConicSolver:
         will_print = self.fid and self.print_every and (status != ""
                             or self.n_iter % self.print_every != 0
                             or (self.print_restart and just_restarted))
+
         if self.save_history or will_print:
 
             # De Morgan's law
+            # TODO: please verify this
+            #       this form is making me nervous
             if not (not (self.data_collection_always_use_x and not v_s_x) and not (not v_s_x and not v_is_y)):
 
                 f_x_save = f_x
@@ -253,28 +257,66 @@ class ConicSolver:
 
                 if self.error_function is not None and self.saddle:
                     if g_Ax is not None:
-                        None # TODO TODO TODO
-                        # ??? again, what in the world is this syntax
-                        # [f_X, g_Ax] = smoothF(A_x)
+                        # again incomprehensible matlab syntax
+                        # [f_x, g_Ax] = smoothF(A_x)
+                        # likely [f, g] = smoothF() is the form of the
+                        # function
+                        # in Python i presume this is best represented
+                        # just as a single variable which is a list/array
+                        None
 
                     cur_dual = g_Ax
 
-            if np.isinf(f_x):
-                f_x = smooth_function(A_x)
+                if np.isinf(f_x):
+                    f_x = smooth_function(A_x)
 
-            # this is a mess
-            if np.isinf(C_x):
-                C_x = projector_function(x)
+                # this is a mess
+                if np.isinf(C_x):
+                    C_x = projector_function(x)
 
-            # might be incorrect, if f_X and C_x are arrays
-            f_v = self.max_min * (f_x + C_x)
-            cur_pri = x # want better name but idk what this means
-            v_is_x = True
-            # Undo calculations
-            f_x = f_x_save
-            g_Ax = g_Ax_save
+                # might be incorrect, if f_X and C_x are arrays
+                f_v = self.max_min * (f_x + C_x)
+                cur_pri = x # want better name but idk what this means
+                v_is_x = True
+                # Undo calculations
+                f_x = f_x_save
+                g_Ax = g_Ax_save
 
-        return True # TODO
+            # if ~isempty(errFcn) & & iscell(errFcn)
+            # python has no cell array (most like Python list)
+            # what to do here?
+            # TODO: ignoring this case for now
+            #       please investigate but it does not seem error_function
+            #       will ever be a matlab cell array equivalent...
+            #if self.error_function is not None and np.iscell(self.error_function):
+            #    errs = np.zeros(1, )
+            #
+        if status == "" and self.beta < 1 and backtrack_simple \
+                             and local_L < self.L_exact:
+            warning_lipschitz = True
+        else:
+            warning_lipschitz = False
+
+        # print status
+        if will_print:
+            if warning_lipschitz:
+                warning_lipschitz = False
+                bchar = 'L'
+
+            elif backtrack_simple:
+                bchar = ' '
+            else:
+                bchar = '*'
+
+            # TODO: format may be (read: is likely) incorrect
+            # TODO: pass f_v and norm_x as params
+            out ="(%d, '%-4d| %+12.5e  %8.2e  %8.2e%c)" % fid, self.n_iter, f_v, norm_dx / max(norm_x, 1), 1 / L, {bchar}
+            print(out)
+
+            if self.count_ops:
+                print(f"{fid} |")
+
+            return True # TODO
 
 
 
