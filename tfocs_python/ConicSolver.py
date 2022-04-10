@@ -39,6 +39,40 @@ class ConicSolver:
         # iterations start at 0
         self.n_iter = 0
 
+        self.out = np.array()
+
+        # TODO: description
+
+        # TODO: function types assertions?
+
+        # TODO: L0_default, alpha default etc
+        # def_fields?
+
+        # TODO: some more stuff
+
+        # TODO: smooth & projector function
+
+        # TODO: max min
+
+        # TODO: affine
+
+        # TODO: init tfocs_count___ variable here (found in self.count)
+        #
+        self.L = self.L_0
+        self.theta = float('inf')
+        f_v_old = float('inf')
+        self.x = np.array()
+        self.A_x = np.array()
+        self.f_x = float('inf')
+        self.f_x = float('inf')
+        self.g_x = np.array()
+        self.g_Ax = np.array()
+
+        self.restart_iter = 0
+        self.warning_lipschitz = 0
+        self.backtrack_simple = True
+        self.backtrack_tol = 1e-10
+        self.backtrack_steps = 0
 
     def auslender_teboulle(self, smooth_func, affine_func, projector_func, x0):
         """Auslender & Teboulle's method
@@ -55,17 +89,6 @@ class ConicSolver:
 
         # TODO: investigate if empty lists should be numpy arrays instead
         # x = [] # FIXME: taken from matlab (TFOCS), should probably be number
-        x = np.array([]) # Actually, should probably be NP array!
-        A_x = np.array([])
-        f_x = float('inf')
-        C_x = float('inf')
-        g_x = np.array([])
-        g_Ax = np.array([])
-        restart_iter = 0
-        warning_lipschitz = 0
-        backtrack_simple = True
-        backtrack_tol = 1e-10
-        backtrack_steps = 0
 
         counter_Ay = 0
         counter_Ax = 0
@@ -310,13 +333,71 @@ class ConicSolver:
 
             # TODO: format may be (read: is likely) incorrect
             # TODO: pass f_v and norm_x as params
-            out ="(%d, '%-4d| %+12.5e  %8.2e  %8.2e%c)" % fid, self.n_iter, f_v, norm_dx / max(norm_x, 1), 1 / L, {bchar}
-            print(out)
+            to_print ="(%d, '%-4d| %+12.5e  %8.2e  %8.2e%c)" % fid, self.n_iter, f_v, norm_dx / max(norm_x, 1), 1 / L, {bchar}
+
+            # TODO: matlab fprintf prints to file!
+            #       could perhaps use write method
+            print(to_print, file=fid)
 
             if self.count_ops:
-                print(f"{fid} |")
+                print("|", file=fid)
 
-            return True # TODO
+                # TODO: tfocs_count___ is array??
+                print("%5d", self.count, file=fid)
+
+            if self.error_function is not None:
+                if self.count_ops:
+                    print(' ', file=fid)
+
+                print('|', file=fid)
+                # TODO: no errs since error function is null by default
+                # print(" {:8.2e}".format(errs))
+
+            # display number used to determine stopping
+            # in COACS this should always be 1
+            if self.print_stop_criteria:
+                if self.stop_criterion == 1:
+                    if norm_dx is not none and norm_x is not None and var is not None and:
+                        stop_resid = norm_dx/max(norm_x, 1)
+
+                    else:
+                        stop_resid = float('inf')
+
+                else:
+                    raise error(f"stop criterion {stop_criterion} not yet implemented")
+
+                if self.error_function is not None or self.count_ops:
+                    print(' ', file=fid)
+
+                print('|', file=fid)
+
+                # assumes stop_resid exists (i. e. stop_criterion == 1)
+                print(" %8.2e", stop_resid, file=fid) # hopefully correct syntax
+
+            if self.print_restart and just_restarted:
+                print(' | restarted', file=fid)
+
+            print('\n', file=fid)
+
+        if self.save_history:
+            if self.out.f.size() < self.n_iter and status == "":
+                csize = min(self.max_iterations, self.out.f.size() + 1000)
+
+                # TODO: check indexing
+                self.out.f(end+1:csize,1) = 0
+                self.out.theta(end+1:scize,1) = 0
+
+
+
+
+
+
+
+
+        return True #### TODO TODO
+
+
+
 
 
 
