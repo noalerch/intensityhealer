@@ -20,6 +20,7 @@ class ConicSolver:
         self.alpha = 0.9
         self.L_0 = 1
         self.L_exact = float('inf')
+        self.L_local = 0 # changes with backtrack
         self.mu = 0
         self.fid = 1
         self.stop_criterion = 1
@@ -39,7 +40,9 @@ class ConicSolver:
         # iterations start at 0
         self.n_iter = 0
 
-        self.out = np.array()
+        # TODO: implement out in a smart way
+        self.out = np.array([])
+        self.test = []
 
         # TODO: description
 
@@ -57,13 +60,11 @@ class ConicSolver:
         # TODO: affine
 
         # TODO: init tfocs_count___ variable here (found in self.count)
-        #
         self.L = self.L_0
         self.theta = float('inf')
         f_v_old = float('inf')
         self.x = np.array()
         self.A_x = np.array()
-        self.f_x = float('inf')
         self.f_x = float('inf')
         self.g_x = np.array()
         self.g_Ax = np.array()
@@ -73,6 +74,8 @@ class ConicSolver:
         self.backtrack_simple = True
         self.backtrack_tol = 1e-10
         self.backtrack_steps = 0
+
+        self.just_restarted = False
 
     def auslender_teboulle(self, smooth_func, affine_func, projector_func, x0):
         """Auslender & Teboulle's method
@@ -94,18 +97,18 @@ class ConicSolver:
         counter_Ax = 0
 
         # iteration values
-        y = x
-        z = x
-        A_y = A_x
-        A_z = A_x
+        y = self.x
+        z = self.x
+        A_y = self.A_x
+        A_z = self.A_x
         C_y = float('inf')
-        C_z = C_x
-        f_y = f_x
-        f_z = f_x
-        g_y = g_x
-        g_z = g_x
-        g_Ay = g_Ax
-        g_Az = g_Ax
+        C_z = self.C_x
+        f_y = self.f_x
+        f_z = self.f_x
+        g_y = self.g_x
+        g_z = self.g_x
+        g_Ay = self.g_Ax
+        g_Az = self.g_Ax
 
         while True:
             x_old = x
@@ -182,6 +185,9 @@ class ConicSolver:
                 if break_val:
                     break
 
+            # TODO: proper implementation of xy if we want to handle
+            #       stopCrit 2
+            xy = 0 # PLACEHOLDER: xy
             break_val = self.iterate(x, x_old, xy, A_x, A_y, f_y, g_Ax, g_Ay)
             if break_val:
                 break
@@ -195,7 +201,7 @@ class ConicSolver:
     # based on tfocs_iterate.m script
     # needs ridiculous number of arguments since MATLAB is unbearable
     def iterate(self, x, x_old, xy, A_x, A_y, f_y, g_Ax, g_Ay,
-                smooth_function) -> bool:
+                smooth_function, projector_function) -> bool:
         status = ""
 
         # test for positive stopping criteria
@@ -225,7 +231,6 @@ class ConicSolver:
         elif self.stop_criterion == 1 and norm_dx < self.tol * max(norm_x, 1):
             status = "Step size tolerance reached"
 
-        # TODO: what is L? should this be L_exact?
         elif self.stop_criterion == 2 and self.L * math.sqrt(xy_sq) < self.tol * max(norm_x, 1):
             status = "Step size tolerance reached"
         elif self.n_iter == self.max_iterations:
@@ -234,8 +239,8 @@ class ConicSolver:
         elif self.count_ops and np.max(self.count) <= self.max_counts:
             status = "Function/operator count limit reached"
             limit_reached = True
-        elif backtrack_steps > 0 and xy_sq == 0:
-            status = f"Unexpectedly small step size after {backtrack_steps} backtrack steps"
+        elif self.backtrack_steps > 0 and xy_sq == 0:
+            status = f"Unexpectedly small step size after {self.backtrack_steps} backtrack steps"
 
         # for stop_crit 3, need new and old dual points
         # TODO most of this. Left for now because not needed for COACS
@@ -264,9 +269,10 @@ class ConicSolver:
         #       not yet imlemented since COACS uses default stop_crit
 
         # Data collection
+        # fid
         will_print = self.fid and self.print_every and (status != ""
                             or self.n_iter % self.print_every != 0
-                            or (self.print_restart and just_restarted))
+                            or (self.print_restart and self.just_restarted))
 
         if self.save_history or will_print:
 
@@ -275,7 +281,9 @@ class ConicSolver:
             #       this form is making me nervous
             if not (not (self.data_collection_always_use_x and not v_s_x) and not (not v_s_x and not v_is_y)):
 
-                f_x_save = f_x
+                # TODO: fix inconsistent placing of variables as attributes
+                #       and method vars
+                f_x_save = self.f_x
                 g_Ax_save = g_Ax
 
                 if self.error_function is not None and self.saddle:
@@ -290,11 +298,10 @@ class ConicSolver:
 
                     cur_dual = g_Ax
 
-                if np.isinf(f_x):
+                if np.isinf(self.f_x):
                     f_x = smooth_function(A_x)
 
-                # this is a mess
-                if np.isinf(C_x):
+                if np.isinf(self.C_x):
                     C_x = projector_function(x)
 
                 # might be incorrect, if f_X and C_x are arrays
@@ -314,8 +321,10 @@ class ConicSolver:
             #if self.error_function is not None and np.iscell(self.error_function):
             #    errs = np.zeros(1, )
             #
-        if status == "" and self.beta < 1 and backtrack_simple \
-                             and local_L < self.L_exact:
+        if status == "" and self.beta < 1 and self.backtrack_simple \
+                             and self.L_local < self.L_exact: # whence does local_L come?
+            # NOTE: it appears localL in TFOCS arises from the backtracking logic
+            # we put L_local as a class instance attribute
             warning_lipschitz = True
         else:
             warning_lipschitz = False
@@ -326,30 +335,30 @@ class ConicSolver:
                 warning_lipschitz = False
                 bchar = 'L'
 
-            elif backtrack_simple:
+            elif self.backtrack_simple:
                 bchar = ' '
             else:
                 bchar = '*'
 
             # TODO: format may be (read: is likely) incorrect
             # TODO: pass f_v and norm_x as params
-            to_print ="(%d, '%-4d| %+12.5e  %8.2e  %8.2e%c)" % fid, self.n_iter, f_v, norm_dx / max(norm_x, 1), 1 / L, {bchar}
+            to_print ="(%d, '%-4d| %+12.5e  %8.2e  %8.2e%c)" % self.fid, self.n_iter, f_v, norm_dx / max(norm_x, 1), 1 / self.L, {bchar}
 
             # TODO: matlab fprintf prints to file!
             #       could perhaps use write method
-            print(to_print, file=fid)
+            print(to_print, file=self.fid)
 
             if self.count_ops:
-                print("|", file=fid)
+                print("|", file=self.fid)
 
                 # TODO: tfocs_count___ is array??
-                print("%5d", self.count, file=fid)
+                print("%5d", self.count, file=self.fid)
 
             if self.error_function is not None:
                 if self.count_ops:
-                    print(' ', file=fid)
+                    print(' ', file=self.fid)
 
-                print('|', file=fid)
+                print('|', file=self.fid)
                 # TODO: no errs since error function is null by default
                 # print(" {:8.2e}".format(errs))
 
@@ -357,35 +366,46 @@ class ConicSolver:
             # in COACS this should always be 1
             if self.print_stop_criteria:
                 if self.stop_criterion == 1:
-                    if norm_dx is not none and norm_x is not None and var is not None and:
+                    if norm_dx is not None and norm_x is not None:
                         stop_resid = norm_dx/max(norm_x, 1)
 
                     else:
                         stop_resid = float('inf')
 
                 else:
-                    raise error(f"stop criterion {stop_criterion} not yet implemented")
+                    raise Exception(f"stop criterion {self.stop_criterion} not yet implemented")
 
                 if self.error_function is not None or self.count_ops:
-                    print(' ', file=fid)
+                    print(' ', file=self.fid)
 
-                print('|', file=fid)
+                print('|', file=self.fid)
 
                 # assumes stop_resid exists (i. e. stop_criterion == 1)
-                print(" %8.2e", stop_resid, file=fid) # hopefully correct syntax
+                print(" %8.2e", stop_resid, file=self.fid) # hopefully correct syntax
 
-            if self.print_restart and just_restarted:
-                print(' | restarted', file=fid)
+            if self.print_restart and self.just_restarted:
+                print(' | restarted', file=self.fid)
 
-            print('\n', file=fid)
+            print('\n', file=self.fid)
 
+        # extending arrays if needed
         if self.save_history:
-            if self.out.f.size() < self.n_iter and status == "":
-                csize = min(self.max_iterations, self.out.f.size() + 1000)
+            f_size = self.out.f.size
+            if f_size < self.n_iter and status == "":
+                csize = min(self.max_iterations, f_size + 1000) # this is +1 compated to TFOCS due to matlab indexing. Does this matter?
+
+                # removed + 1 because of 0-indexing
+                self.out.f = np.pad(self.out.f, ((0, csize), (0, 0))) # TODO: verify
+                self.out.theta = np.pad(self.out.theta, ((0, csize), (0, 0))) # TODO: verify
+                self.out.step_size = np.pad(self.out.step_size, ((0, csize), (0, 0))) # TODO: verify
+                self.out.norm_grad = np.pad(self.out.norm_grad, ((0, csize), (0, 0))) # TODO: verify
+
+                if self.count_ops:
+
+                    # uses : instad of 1 in matlab code. Please check!
+                    self.out.norm_grad = np.pad(self.out.norm_grad, ((0, csize), (0, 0)))  # TODO: verify
 
                 # TODO: check indexing
-                self.out.f(end+1:csize,1) = 0
-                self.out.theta(end+1:scize,1) = 0
 
 
 
