@@ -63,11 +63,11 @@ class ConicSolver:
         self.L = self.L_0
         self.theta = float('inf')
         f_v_old = float('inf')
-        self.x = np.array()
-        self.A_x = np.array()
+        self.x = np.array([])
+        self.A_x = np.array([])
         self.f_x = float('inf')
-        self.g_x = np.array()
-        self.g_Ax = np.array()
+        self.g_x = np.array([])
+        self.g_Ax = np.array([])
 
         self.restart_iter = 0
         self.warning_lipschitz = 0
@@ -77,7 +77,7 @@ class ConicSolver:
 
         self.just_restarted = False
 
-    def auslender_teboulle(self, smooth_func, affine_func, projector_func, x0):
+    def auslender_teboulle(self, smooth_func, affine_func, projector_func, linear_func, x0):
         """Auslender & Teboulle's method
         args:
             smooth_func: function for smooth
@@ -111,9 +111,9 @@ class ConicSolver:
         g_Az = self.g_Ax
 
         while True:
-            x_old = x
+            x_old = self.x
             z_old = z
-            A_x_old = A_x
+            A_x_old = self.A_x
             A_z_old = A_z
 
             # backtracking loop
@@ -128,12 +128,12 @@ class ConicSolver:
 
                 # next iteration
                 if theta < 1:
-                    # TODO: what should z_old type be?
-                    #       what should y type be???
                     y = (1 - theta) * x_old + theta * z_old
 
                     if counter_Ay >= self.counter_reset:
-                        A_y = self.apply_linear(y, 1)
+                        # A_y = self.apply_linear(y, 1)
+                        A_y = linear_func(y, 1) #, mode) # ignoring mode for now
+
                         counter_Ay = 0
 
                     else:
@@ -146,17 +146,24 @@ class ConicSolver:
 
                 if g_y.size == 0:
                     if g_Ay.size == 0:
-                        None
+
                         # syntax makes no sense
                         # np.array([f_y, g_Ay]) = self.apply_smooth(A_y)
+                        # (f_y, g_Ay) = self.apply_smooth(A_y)
+                        # assume for now that count_ops = 1.
+                        # in TFOCS,
+                        # apply_smooth = @(x)solver_apply(1: (1 + (nargoutt > 1)), smoothF, x );
+                        # we just perform the smooth function directly
 
-                    g_y = self.apply_linear(g_Ay, 2)
+                        g_y = linear_func(g_Ay, 2)
+                        # g_y = self.apply_linear(g_Ay, 2)
 
                 step = 1 / (theta * L)
 
                 # FIXME: i do not understand this. moving on for now
-                np.array[C_z, z] = self.apply_projector(z_old - step * g_y, step)
-                A_z = self.apply_linear(z, 1)
+                # np.array[C_z, z] = projector_function(z_old - step * g_y, step)
+                C_z, z = projector_function(z_old - step * g_y, step)
+                A_z = linear_func(z, 1)
 
                 # new iteration
                 if theta == 1:
@@ -169,7 +176,7 @@ class ConicSolver:
 
                     if counter_Ax >= self.counter_reset:
                         counter_Ax = 0
-                        A_x = self.apply_linear(x, 1)
+                        A_x = linear_func(x, 1)
                     else:
                         counter_Ax += 1
                         A_x = (1 - theta) * A_x_old + theta * A_z
@@ -177,6 +184,7 @@ class ConicSolver:
                     C_x = float('inf')
 
                 f_x = float('inf')
+
                 # TODO: should these be numpy arrays?
                 g_Ax = np.array([])
                 g_x = np.array([])
@@ -196,10 +204,9 @@ class ConicSolver:
 
     # no idea what this method should do rofl
     def cleanup(self):
-        None
+        pass
 
     # based on tfocs_iterate.m script
-    # needs ridiculous number of arguments since MATLAB is unbearable
     def iterate(self, x, x_old, xy, A_x, A_y, f_y, g_Ax, g_Ay,
                 smooth_function, projector_function) -> bool:
         status = ""
@@ -214,14 +221,15 @@ class ConicSolver:
         xy_sq = 0 # placeholder
 
         # legacy stopping criteria
+        # not necessary for jackdaw-based COACS
         if self.stop_criterion == 2 and self.beta >= 1:
-            # FIXME? looks stupid with self.y
+            # TODO: this is dumb may as well pass y as arg
             xy = x - self.y
 
             xy_sq  = np.dot(xy, xy) # TODO: might be wrong
 
         limit_reached = False
-        # could use match-case which was introduced in Python 3.10
+        # could perhaps use match-case which was introduced in Python 3.10
         # avoiding this due to compatibility issues
         if np.isnan(f_y):
             status = "NaN found -- aborting"
@@ -294,7 +302,7 @@ class ConicSolver:
                         # function
                         # in Python i presume this is best represented
                         # just as a single variable which is a list/array
-                        None
+                        pass
 
                     cur_dual = g_Ax
 
@@ -344,8 +352,8 @@ class ConicSolver:
             # TODO: pass f_v and norm_x as params
             to_print ="(%d, '%-4d| %+12.5e  %8.2e  %8.2e%c)" % self.fid, self.n_iter, f_v, norm_dx / max(norm_x, 1), 1 / self.L, {bchar}
 
-            # TODO: matlab fprintf prints to file!
-            #       could perhaps use write method
+            # NOTE: matlab fprintf prints to file!
+            #       could perhaps use more elegant write method
             print(to_print, file=self.fid)
 
             if self.count_ops:
@@ -421,41 +429,75 @@ class ConicSolver:
 
 
 
-    # TODO: backtracking in jackdaw should use Nettelblad's changed backtracking
-    #       script. Should this implementation only be based on that?
-    def backtrack(self) -> bool:
-        do_break = False
-        while True:
+    # TODO: based on Nettelblad's changed backtracking logic
+    def backtrack(self, x, y, f_x, f_y, smooth_func):
 
-            # quick exit for no backtracking (original tfocs_backtrack.m)
-            if self.beta >= 1:
-                do_break = True
-                break
+        if self.beta >= 1:
+            return
 
-        return do_break
+        xy = x - y
+        xy_sq = 0# TODO: a whole mess
+
+        if xy_sq == 0:
+            self.L_local = float('inf')
+            return
+
+        if xy_sq / (np.linalg.dot(x, x)) < eps:
+            self.counter_Ax = float('inf')
+
+        if self.g_Ax.size == 0 or np.isinf(f_x):
+            f_x, self.g_Ax = smooth_func(A_x)
+
+        # not sure what to call this temp variable
+        # in tfocs_backtrack it simply overwrites backtrack_simmple
+        # before changing again in the next lines
+        within_tolerance = abs(f_y - self.f_x) >=\
+                                self.backtrack_tol * max(max(abs(self.f_x),
+                                                             abs(f_y)), 1)
+
+        # .^is elementwise power
+        self.backtrack_simple = within_tolerance and (abs(xy_sq) >= self.backtrack_tol**2)
+
+        # assuming np.dot is equivalent to tfocs_dot
+        local_L_origin = 2 * np.dot(A_x - A_y, g_Ax - g_Ay) / xy_sq
+
+        local_L = max(self.L, local_L_origin)
+
+        q_x = np.dot(xy, g_y + 0.5 * L * xy)
+
+        # FIXME: what is eps??
+        local_L_2 = self.L + 2 * max((f_x - f_y) - q_x + max([eps(f_x), eps(f_y), eps(q_x), eps(f_x - f_y)]), 0) / xy_sq
+
+        if self.backtrack_simple:
+            if local_L < local_L_2:
+                global xval = x
+
+
+
 
     # assuming countOps (?), see tfocs_initialize.m line 398
     # TODO: remove varargin?
     def apply_projector(self, varargin, projector_function):
         if self.count_ops:
-            None
+            pass
 
         # false by default
         else:
             return projector_function(varargin)
 
 
+    # TODO? ignore for now
     def apply_linear(self, x, mode):
         # this can't be right lol
         return self.solver_apply(3, self.linear_function, x, mode)
 
     # TODO
     def solver_apply(self):
-        None
+        pass
 
     # TODO
     def linear_function(self):
-        None
+        pass
 
 
     # assumes mu > 0 & & ~isinf(Lexact) && Lexact > mu,
@@ -465,3 +507,12 @@ class ConicSolver:
         ratio = math.sqrt(self.mu / self.L_exact)
         theta_scale = (1 - ratio) / (1 + ratio)
         return min(1.0, theta_old, theta_scale)
+
+class SolverOutput:
+    def __init__(self, alg, f):
+        self.alg = alg
+        self.f = f
+        self.theta = np.array([])
+        self.step_size = np.array([])
+        self.norm_grad = np.array([])
+
