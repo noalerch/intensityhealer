@@ -66,6 +66,7 @@ class ConicSolver:
         self.x = np.array([])
         self.A_x = np.array([])
         self.f_x = float('inf')
+        self.C_x = float('inf')
         self.g_x = np.array([])
         self.g_Ax = np.array([])
 
@@ -97,12 +98,13 @@ class ConicSolver:
         counter_Ax = 0
 
         # iteration values
+        # TODO: move most of these, they do not need to be in this method
         y = self.x
         z = self.x
         A_y = self.A_x
         A_z = self.A_x
         C_y = float('inf')
-        C_z = self.C_x
+        C_x = self.C_z # FIXME: C_x initialized in tfocs_AT.m
         f_y = self.f_x
         f_z = self.f_x
         g_y = self.g_x
@@ -162,7 +164,7 @@ class ConicSolver:
 
                 # FIXME: i do not understand this. moving on for now
                 # np.array[C_z, z] = projector_function(z_old - step * g_y, step)
-                C_z, z = projector_function(z_old - step * g_y, step)
+                C_z, z = projector_func(z_old - step * g_y, step)
                 A_z = linear_func(z, 1)
 
                 # new iteration
@@ -325,7 +327,7 @@ class ConicSolver:
             # De Morgan's law
             # TODO: please verify this
             #       this form is making me nervous
-            if not (not (self.data_collection_always_use_x and not v_is_x) and not (not v_s_x and not v_is_y)):
+            if not (not (self.data_collection_always_use_x and not v_is_x) and not (not v_is_x and not v_is_y)):
 
                 # TODO: fix inconsistent placing of variables as attributes
                 #       and method vars
@@ -468,20 +470,26 @@ class ConicSolver:
 
 
 
-    # TODO: based on Nettelblad's changed backtracking logic
-    def backtrack(self, x, y, f_x, f_y, smooth_func):
+    # based on Nettelblad's changed backtracking logic for TFOCS
+    # handles numerical errors better
+    def backtrack(self, x, y, f_x, f_y, g_x, g_y, A_x, A_y, g_Ax, g_Ay, smooth_func):
 
         if self.beta >= 1:
             return
 
         xy = x - y
-        xy_sq = 0# TODO: a whole mess
+
+        ## TODO TODO TODO
+        xy_sq = 0 # TODO: a whole mess
+        ## TODO TODO TODO
 
         if xy_sq == 0:
             self.L_local = float('inf')
             return
 
-        if xy_sq / (np.linalg.dot(x, x)) < eps:
+
+        # to handle numerical issues from the ratio being smaller than machine epsilon
+        if xy_sq / (np.dot(x, x)) < np.finfo(float).eps:
             self.counter_Ax = float('inf')
 
         if self.g_Ax.size == 0 or np.isinf(f_x):
@@ -494,7 +502,7 @@ class ConicSolver:
                                 self.backtrack_tol * max(max(abs(self.f_x),
                                                              abs(f_y)), 1)
 
-        # .^is elementwise power
+        # .^ is in matlab elementwise power, we represent as **
         self.backtrack_simple = within_tolerance and (abs(xy_sq) >= self.backtrack_tol**2)
 
         # assuming np.dot is equivalent to tfocs_dot
@@ -502,14 +510,21 @@ class ConicSolver:
 
         local_L = max(self.L, local_L_origin)
 
-        q_x = np.dot(xy, g_y + 0.5 * L * xy)
+        q_x = np.dot(xy, g_y + 0.5 * self.L * xy)
 
-        # FIXME: what is eps??
-        local_L_2 = self.L + 2 * max((f_x - f_y) - q_x + max([eps(f_x), eps(f_y), eps(q_x), eps(f_x - f_y)]), 0) / xy_sq
+        local_L_2 = self.L + 2 * max((f_x - f_y) - q_x + max([np.finfo(float).eps(f_x), np.finfo(float).eps(f_y), np.finfo(float).eps(q_x), np.finfo(float).eps(f_x - f_y)]), 0) / xy_sq
 
         if self.backtrack_simple:
             if local_L < local_L_2:
-                global xval = x
+
+                # the changed backtracking logic uses a number of global variables
+                # when localL < localL2
+                # the question is what purpose these serve.
+                # also how should these be used in python
+                global xval
+                global yval
+                global A_x2
+                global A_y2
 
 
 
