@@ -207,7 +207,7 @@ class ConicSolver:
         pass
 
     # based on tfocs_iterate.m script
-    def iterate(self, x, x_old, xy, A_x, A_y, f_y, g_Ax, g_Ay,
+    def iterate(self, x, y, x_old, xy, A_x, A_y, f_y, g_Ax, g_Ay, C_x, C_y,
                 smooth_function, projector_function) -> bool:
         status = ""
 
@@ -223,12 +223,14 @@ class ConicSolver:
         # legacy stopping criteria
         # not necessary for jackdaw-based COACS
         if self.stop_criterion == 2 and self.beta >= 1:
-            # TODO: this is dumb may as well pass y as arg
-            xy = x - self.y
+            xy = x - y
 
             xy_sq  = np.dot(xy, xy) # TODO: might be wrong
 
-        limit_reached = False
+        current_dual = None
+
+        limit_reached = False # bool nicer than the string search in tfocs
+
         # could perhaps use match-case which was introduced in Python 3.10
         # avoiding this due to compatibility issues
         if np.isnan(f_y):
@@ -259,22 +261,58 @@ class ConicSolver:
 
         ### Use function value for y instead of x if cheaper
         ### This part determines computational cost before continuing
-        v_s_x = False
+        v_is_x = False
         v_is_y = False
 
         # FIXME: code unreadable
-        # TODO: ignoring this part for now, since COACS does not seem to
-        #       go here
-        #       might be worthwile to investigate further
-        # if (status == "" or limit_reached) and (self.stop_function != None
-        #        or self.restart < 0 or self.stop_criterion in [3, 4]):
-        #    need_dual = self.saddle and (self.stop_function != None or
-        #                                 self.stop_criterion in [3, 4])
+        # likely only the first clause is relevant
+        if (status == "" or limit_reached) and (self.stop_function is None
+                or self.restart < 0 or self.stop_criterion in [3, 4]):
+            need_dual = self.saddle and (self.stop_function is None or
+                                         self.stop_criterion in [3, 4])
+
+            # unsure of these tfocs_iterate.m lines 60-1
+            comp_x = [np.isinf(self.f_x), need_dual * np.isempty(g_Ax), np.isinf(C_x)]
+            comp_y = [np.isinf(self.f_y), need_dual * np.isempty(g_Ay), np.isinf(C_y)]
+
+            if np.sum(comp_x) <= np.sum(comp_y) or self.stopping_criteria_always_use_x:
+
+                if comp_x[2]:
+                    self.f_x, self.g_Ax = smooth_function(A_x)
+                elif comp_x[1]:
+                    f_x = smooth_function(A_x)
+
+                current_priority = x
+                if self.saddle:
+                    current_dual = g_Ax
+                f_v = np.maxmin(self.f_x + C_x)
+                v_is_x = True
+
+            else:
+
+                if comp_y[2]:
+                    self.f_y, self.g_Ay = smooth_function(A_y)
+                elif comp_y[1]:
+                    f_y = smooth_function(A_y)
+
+                current_priority = y
+                if self.saddle:
+                    current_dual = g_Ay
+                f_v = np.maxmin(self.f_y + C_y)
+                v_is_y = True
+
+                if self.data_collection_always_use_x:
+                    self.f_vy = f_v
+                    if self.saddle:
+                        dual_y = current_dual
+
+
+
         #    # TODO: finish this part
         #    comp_x = [np.isinf(f_x), need_dual]
 
         # TODO: apply stop_criterion 3 if it has been requested
-        #       not yet imlemented since COACS uses default stop_crit
+        #       not yet implemented since COACS uses default stop_crit
 
         # Data collection
         # fid
@@ -287,7 +325,7 @@ class ConicSolver:
             # De Morgan's law
             # TODO: please verify this
             #       this form is making me nervous
-            if not (not (self.data_collection_always_use_x and not v_s_x) and not (not v_s_x and not v_is_y)):
+            if not (not (self.data_collection_always_use_x and not v_is_x) and not (not v_s_x and not v_is_y)):
 
                 # TODO: fix inconsistent placing of variables as attributes
                 #       and method vars
@@ -304,7 +342,7 @@ class ConicSolver:
                         # just as a single variable which is a list/array
                         pass
 
-                    cur_dual = g_Ax
+                    current_dual = g_Ax
 
                 if np.isinf(self.f_x):
                     f_x = smooth_function(A_x)
@@ -345,6 +383,7 @@ class ConicSolver:
 
             elif self.backtrack_simple:
                 bchar = ' '
+
             else:
                 bchar = '*'
 
