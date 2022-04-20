@@ -191,6 +191,9 @@ class ConicSolver:
                 g_Ax = np.array([])
                 g_x = np.array([])
 
+                # TODO: investigare further the use of do_break
+                #       in tfocs_AT. is it necessary with the
+                #       changed backtrack?
                 break_val = self.backtrack()
                 if break_val:
                     break
@@ -455,12 +458,6 @@ class ConicSolver:
                     self.out.norm_grad = np.pad(self.out.norm_grad, ((0, csize), (0, 0)))  # TODO: verify
 
                 # TODO: check indexing
-
-
-
-
-
-
 
 
         return True #### TODO TODO
