@@ -370,7 +370,7 @@ class ConicSolver:
             #    errs = np.zeros(1, )
             #
         if status == "" and self.beta < 1 and self.backtrack_simple \
-                             and self.L_local < self.L_exact: # whence does local_L come?
+                             and self.L_local < self.L_exact: # whence does self.L_local come?
             # NOTE: it appears localL in TFOCS arises from the backtracking logic
             # we put L_local as a class instance attribute
             warning_lipschitz = True
@@ -472,6 +472,8 @@ class ConicSolver:
 
     # based on Nettelblad's changed backtracking logic for TFOCS
     # handles numerical errors better
+    # TODO: test nettelblad's backtrack in TFOCS instead of original
+    #       it might have a good deal of commented out code
     def backtrack(self, x, y, f_x, f_y, g_x, g_y, A_x, A_y, g_Ax, g_Ay, smooth_func):
 
         if self.beta >= 1:
@@ -506,25 +508,37 @@ class ConicSolver:
         self.backtrack_simple = within_tolerance and (abs(xy_sq) >= self.backtrack_tol**2)
 
         # assuming np.dot is equivalent to tfocs_dot
-        local_L_origin = 2 * np.dot(A_x - A_y, g_Ax - g_Ay) / xy_sq
+        L_local_origin = 2 * np.dot(A_x - A_y, g_Ax - g_Ay) / xy_sq
 
-        local_L = max(self.L, local_L_origin)
+        self.L_local = max(self.L, L_local_origin)
 
         q_x = np.dot(xy, g_y + 0.5 * self.L * xy)
 
-        local_L_2 = self.L + 2 * max((f_x - f_y) - q_x + max([np.finfo(float).eps(f_x), np.finfo(float).eps(f_y), np.finfo(float).eps(q_x), np.finfo(float).eps(f_x - f_y)]), 0) / xy_sq
+        self.L_local_2 = self.L + 2 * max((f_x - f_y) - q_x + max([np.finfo(float).eps(f_x), np.finfo(float).eps(f_y), np.finfo(float).eps(q_x), np.finfo(float).eps(f_x - f_y)]), 0) / xy_sq
 
         if self.backtrack_simple:
-            if local_L < local_L_2:
+            self.L_local = min(self.L_local, self.L_local_2)
 
-                # the changed backtracking logic uses a number of global variables
-                # when localL < localL2
-                # the question is what purpose these serve.
-                # also how should these be used in python
-                global xval
-                global yval
-                global A_x2
-                global A_y2
+        # NOTE: that normlimit in nettelblads backtrack is only called from
+        #       code which is already commented out
+        # norm_limit = np.array([abs(xy_sq) / (self.backtrack_tol * max(max(abs(np.dot(x, x)), abs(np.dot(y, y))), 1)))])
+
+        self.backtrack_steps += 1
+
+        if f_x - f_y > 0:
+            self.L_local = max(self.L, self.L_local)
+
+        if self.L_local <= L or self.L_local >= self.L_exact:
+            return # analogous to break in matlab script?
+
+        # isinf would be strange here since self.L_local should be a number
+        # TODO: check other isinfs
+        # if np.isinf(self.L_local)
+        if self.L_local == float('inf'):
+            self.L_local = self.L
+
+        self.L = min(self.L_exact, self.L / self.beta)
+
 
 
 
