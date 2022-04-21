@@ -2,7 +2,11 @@
 % Backtracking helper script.
 
 % Quick exit for no backtracking
-if beta >= 1, break; end % SRB changing == to >=
+do_break = false; % >R2015b compatibility
+if beta >= 1
+    do_break = true;
+    return; % break changed to return for compatability
+end % SRB changing == to >=
 
 % Quick exit if no progress made
 xy = x - y;
@@ -12,10 +16,11 @@ if xy_sq == 0
 %  localL = Lexact;
 %  if ~isinf(localL), xy_sq = eps(xy_sq); end
   localL = Inf;
-  break;
+  do_break = true;
+  return;
 end
 %fprintf('xy_sq/x is %.2e\n', xy_sq/tfocs_normsq(x) );
-if xy_sq/tfocs_normsq(x) < eps, cntr_Ax=Inf; end % force a reset
+if xy_sq/tfocs_normsq(x) < eps, cntr_Ax=Inf; do_break=true; return; end % force a reset
 
 % Compute Lipschitz estimate
 if isempty( g_Ax ) || isinf( f_x ),
@@ -125,7 +130,7 @@ if f_x - f_y > 0
   localL = max(L, localL);
 end
 
-if localL <= L || localL >= Lexact, break; end
+if localL <= L || localL >= Lexact, do_break=true; return; end
 if ~isinf( localL ), 
     %L = min( Lexact, localL );
 elseif isinf( localL ), localL = L; end
