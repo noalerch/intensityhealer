@@ -126,7 +126,7 @@ class ConicSolver:
             #FIXME: theta is Inf
             while True:
                 # acceleration
-                theta = self.advance_theta(theta_old)
+                theta = self.advance_theta(theta_old, L, L_old)
 
                 # next iteration
                 if theta < 1:
@@ -571,11 +571,13 @@ class ConicSolver:
 
     # assumes mu > 0 & & ~isinf(Lexact) && Lexact > mu,
     # see tfocs_initialize.m (line 532-) and healernoninv.m
-    def advance_theta(self, theta_old: float):
-        # TODO: calculating this inside theta expensive. move outside
+    def advance_theta(self, theta_old: float, L, L_old):
+        # TODO: N83 check? probably don't need to worry about this
+        # TODO: warning that AT may give wrong results with mu > 0 ?
+        # TODO: calculating this inside theta expensive. move outside?
         ratio = math.sqrt(self.mu / self.L_exact)
         theta_scale = (1 - ratio) / (1 + ratio)
-        return min(1.0, theta_old, theta_scale)
+        return min(1.0, theta_old * theta_scale)
 
 class SolverOutput:
     def __init__(self, alg, f):
