@@ -479,7 +479,10 @@ class ConicSolver:
         xy = x - y
 
         ## TODO TODO TODO
-        xy_sq = 0 # TODO: a whole mess
+
+        # TODO: double check parenthesis
+        val = max(abs(xy.flatten()) - np.finfo(max(max(abs(xy.flatten())), max(abs(x.flatten()), abs(y.flatten())))))
+        xy_sq = np.dot(val, val)
         ## TODO TODO TODO
 
         if xy_sq == 0:
@@ -495,7 +498,7 @@ class ConicSolver:
             f_x, self.g_Ax = smooth_func(A_x)
 
         # not sure what to call this temp variable
-        # in tfocs_backtrack it simply overwrites backtrack_simmple
+        # in tfocs_backtrack it simply overwrites backtrack_simple
         # before changing again in the next lines
         within_tolerance = abs(f_y - self.f_x) >=\
                                 self.backtrack_tol * max(max(abs(self.f_x),
@@ -511,10 +514,10 @@ class ConicSolver:
 
         q_x = np.dot(xy, g_y + 0.5 * self.L * xy)
 
-        self.L_local_2 = self.L + 2 * max((f_x - f_y) - q_x + max([np.finfo(float).eps(f_x), np.finfo(float).eps(f_y), np.finfo(float).eps(q_x), np.finfo(float).eps(f_x - f_y)]), 0) / xy_sq
+        L_local_2 = self.L + 2 * max((f_x - f_y) - q_x + max([np.finfo(float).eps(f_x), np.finfo(float).eps(f_y), np.finfo(float).eps(q_x), np.finfo(float).eps(f_x - f_y)]), 0) / xy_sq
 
         if self.backtrack_simple:
-            self.L_local = min(self.L_local, self.L_local_2)
+            self.L_local = min(self.L_local, L_local_2)
 
         # NOTE: that normlimit in nettelblads backtrack is only called from
         #       code which is already commented out
@@ -553,8 +556,9 @@ class ConicSolver:
 
     # TODO? ignore for now
     def apply_linear(self, x, mode):
+        pass
         # this can't be right lol
-        return self.solver_apply(3, self.linear_function, x, mode)
+        # return self.solver_apply(3, self.linear_function, x, mode)
 
     # TODO
     def solver_apply(self):
