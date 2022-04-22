@@ -269,9 +269,8 @@ class ConicSolver:
         v_is_x = False
         v_is_y = False
 
-        # FIXME: code unreadable
-        # likely only the first clause is relevant
-        if (status == "" or limit_reached) and (self.stop_function is None
+        # Honestly unsure if any of these conditions will ever be true in COACS
+        if (status == "" or limit_reached) and (self.stop_function is not None
                 or self.restart < 0 or self.stop_criterion in [3, 4]):
             need_dual = self.saddle and (self.stop_function is None or
                                          self.stop_criterion in [3, 4])
@@ -311,10 +310,16 @@ class ConicSolver:
                     if self.saddle:
                         dual_y = current_dual
 
+            # TODO: llnes 84-96 in tfocs_iterate.m
+            #       likely unnecessary for COACS
+            print("Unexpected! Please implement lines 84 from tfocs_iterate.m")
+
 
 
         #    # TODO: finish this part
         #    comp_x = [np.isinf(f_x), need_dual]
+
+
 
         # TODO: apply stop_criterion 3 if it has been requested
         #       not yet implemented since COACS uses default stop_crit
@@ -327,25 +332,15 @@ class ConicSolver:
 
         if self.save_history or will_print:
 
-            # De Morgan's law
-            # TODO: please verify this
-            #       this form is making me nervous
-            if not (not (self.data_collection_always_use_x and not v_is_x) and not (not v_is_x and not v_is_y)):
+            if (self.data_collection_always_use_x and not v_is_x) or (not v_is_x and not v_is_y):
 
-                # TODO: fix inconsistent placing of variables as attributes
-                #       and method vars
                 f_x_save = self.f_x
                 g_Ax_save = g_Ax
 
                 if self.error_function is not None and self.saddle:
+
                     if g_Ax is not None:
-                        # again incomprehensible matlab syntax
-                        # [f_x, g_Ax] = smoothF(A_x)
-                        # likely [f, g] = smoothF() is the form of the
-                        # function
-                        # in Python i presume this is best represented
-                        # just as a single variable which is a list/array
-                        pass
+                        self.f_x, self.g_Ax = smooth_function(A_x)
 
                     current_dual = g_Ax
 
@@ -360,8 +355,8 @@ class ConicSolver:
                 cur_pri = x # want better name but idk what this means
                 v_is_x = True
                 # Undo calculations
-                f_x = f_x_save
-                g_Ax = g_Ax_save
+                self.f_x = f_x_save
+                self.g_Ax = g_Ax_save
 
             # if ~isempty(errFcn) & & iscell(errFcn)
             # python has no cell array (most like Python list)
