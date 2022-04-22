@@ -366,14 +366,20 @@ class ConicSolver:
             #       will ever be a matlab cell array equivalent...
             #if self.error_function is not None and np.iscell(self.error_function):
             #    errs = np.zeros(1, )
-            #
+
+            # if ~isempty(stopFcn)
+            # again irrelevant for jackdaw COACS. TODO
+
+
+        # iterate line 226
         if status == "" and self.beta < 1 and self.backtrack_simple \
-                             and self.L_local < self.L_exact: # whence does self.L_local come?
+                             and self.L_local > self.L_exact:
             # NOTE: it appears localL in TFOCS arises from the backtracking logic
             # we put L_local as a class instance attribute
             warning_lipschitz = True
-        else:
-            warning_lipschitz = False
+        # else probably not needed
+        # else:
+            # warning_lipschitz = False
 
         # print status
         if will_print:
