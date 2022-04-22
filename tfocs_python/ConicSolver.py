@@ -367,7 +367,7 @@ class ConicSolver:
             # python has no cell array (most like Python list)
             # what to do here?
             # TODO: ignoring this case for now
-            #       please investigate but it does not seem error_function
+            #       please investigate but it does not seem error_function in this impl
             #       will ever be a matlab cell array equivalent...
             #if self.error_function is not None and np.iscell(self.error_function):
             #    errs = np.zeros(1, )
