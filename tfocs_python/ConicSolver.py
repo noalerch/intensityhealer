@@ -1,6 +1,9 @@
 import math
 import numpy as np
 
+
+
+
 class ConicSolver:
     def __init__(self) -> None:
         # instance attributes taken from tfocs_initialize.m
@@ -200,8 +203,7 @@ class ConicSolver:
 
             # TODO: proper implementation of xy if we want to handle
             #       stopCrit 2
-            xy = 0 # PLACEHOLDER: xy
-            break_val = self.iterate(x, x_old, xy, A_x, A_y, f_y, g_Ax, g_Ay)
+            break_val = self.iterate(x, x_old, A_x, A_y, f_y, g_Ax, g_Ay)
             if break_val:
                 break
 
@@ -212,13 +214,11 @@ class ConicSolver:
         pass
 
     # based on tfocs_iterate.m script
-    def iterate(self, x, y, x_old, xy, A_x, A_y, f_y, g_Ax, g_Ay, C_x, C_y,
+    def iterate(self, x, y, x_old, A_x, A_y, f_y, g_Ax, g_Ay, C_x, C_y,
                 smooth_function, projector_function) -> bool:
         status = ""
 
         # test for positive stopping criteria
-        # TODO: check tfocs_iterate if this is correct norming
-        #       for instance, something about squared norm?
         new_iter = self.n_iter + 1
         norm_x = np.linalg.norm(x)
         norm_dx = np.linalg.norm(x - x_old)
@@ -230,7 +230,7 @@ class ConicSolver:
         if self.stop_criterion == 2 and self.beta >= 1:
             xy = x - y
 
-            xy_sq  = np.dot(xy, xy) # TODO: might be wrong
+            xy_sq = square_norm(xy)
 
         current_dual = None
 
@@ -277,7 +277,7 @@ class ConicSolver:
 
             # unsure of these tfocs_iterate.m lines 60-1
             comp_x = [np.isinf(self.f_x), need_dual * np.isempty(g_Ax), np.isinf(C_x)]
-            comp_y = [np.isinf(self.f_y), need_dual * np.isempty(g_Ay), np.isinf(C_y)]
+            comp_y = [np.isinf(f_y), need_dual * np.isempty(g_Ay), np.isinf(C_y)]
 
             if np.sum(comp_x) <= np.sum(comp_y) or self.stopping_criteria_always_use_x:
 
@@ -467,12 +467,9 @@ class ConicSolver:
 
 
 
-
     # based on Nettelblad's changed backtracking logic for TFOCS
     # handles numerical errors better
-    # TODO: test nettelblad's backtrack in TFOCS instead of original
-    #       it might have a good deal of commented out code
-    def backtrack(self, x, y, f_x, f_y, g_x, g_y, A_x, A_y, g_Ax, g_Ay, smooth_func):
+    def backtrack(self, x, y, f_y, g_x, g_y, A_x, A_y, g_Ax, g_Ay, smooth_func):
 
         if self.beta >= 1:
             return
@@ -483,7 +480,7 @@ class ConicSolver:
 
         # TODO: double check parenthesis
         val = max(abs(xy.flatten()) - np.finfo(max(max(abs(xy.flatten())), max(abs(x.flatten()), abs(y.flatten())))))
-        xy_sq = np.dot(val, val)
+        xy_sq = square_norm(val)  # TODO: correct square norm?
         ## TODO TODO TODO
 
         if xy_sq == 0:
@@ -492,11 +489,11 @@ class ConicSolver:
 
 
         # to handle numerical issues from the ratio being smaller than machine epsilon
-        if xy_sq / (np.dot(x, x)) < np.finfo(float).eps:
+        if xy_sq / (square_norm(x)) < np.finfo(float).eps:
             self.counter_Ax = float('inf')
 
-        if self.g_Ax.size == 0 or np.isinf(f_x):
-            f_x, self.g_Ax = smooth_func(A_x)
+        if self.g_Ax.size == 0 or np.isinf(self.f_x):
+            self.f_x, self.g_Ax = smooth_func(A_x)
 
         # not sure what to call this temp variable
         # in tfocs_backtrack it simply overwrites backtrack_simple
@@ -515,7 +512,7 @@ class ConicSolver:
 
         q_x = np.dot(xy, g_y + 0.5 * self.L * xy)
 
-        L_local_2 = self.L + 2 * max((f_x - f_y) - q_x + max([np.finfo(float).eps(f_x), np.finfo(float).eps(f_y), np.finfo(float).eps(q_x), np.finfo(float).eps(f_x - f_y)]), 0) / xy_sq
+        L_local_2 = self.L + 2 * max((self.f_x - f_y) - q_x + max([np.finfo(float).eps(f_x), np.finfo(float).eps(f_y), np.finfo(float).eps(q_x), np.finfo(float).eps(f_x - f_y)]), 0) / xy_sq
 
         if self.backtrack_simple:
             self.L_local = min(self.L_local, L_local_2)
@@ -526,7 +523,7 @@ class ConicSolver:
 
         self.backtrack_steps += 1
 
-        if f_x - f_y > 0:
+        if self.f_x - f_y > 0:
             self.L_local = max(self.L, self.L_local)
 
         if self.L_local <= L or self.L_local >= self.L_exact:
@@ -588,3 +585,5 @@ class SolverOutput:
         self.step_size = np.array([])
         self.norm_grad = np.array([])
 
+def square_norm(arr):
+    return math.sqrt(np.dot(arr, arr))
