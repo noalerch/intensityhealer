@@ -1,9 +1,6 @@
 import math
 import numpy as np
 
-
-
-
 class ConicSolver:
     def __init__(self) -> None:
         # instance attributes taken from tfocs_initialize.m
@@ -560,6 +557,9 @@ class ConicSolver:
     # TODO
     def linear_function(self):
         pass
+
+    def test_method(self):
+        return "task tested successfully"
 
 
     # assumes mu > 0 & & ~isinf(Lexact) && Lexact > mu,
