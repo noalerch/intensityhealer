@@ -157,7 +157,6 @@ class ConicSolver:
 
                 step = 1 / (theta * L)
 
-                # FIXME: i do not understand this. moving on for now
                 # np.array[C_z, z] = projector_function(z_old - step * g_y, step)
                 C_z, z = projector_func(z_old - step * g_y, step)
                 A_z = linear_func(z, 1)
@@ -182,13 +181,9 @@ class ConicSolver:
 
                 f_x = float('inf')
 
-                # TODO: should these be numpy arrays?
                 g_Ax = np.array([])
                 g_x = np.array([])
 
-                # TODO: investigate further the use of do_break
-                #       in tfocs_AT. is it necessary with the
-                #       changed backtrack?
                 break_val = self.backtrack(self.x, y, f_y, g_x, g_y, A_y, g_Ax, g_Ay, smooth_func)
                 if break_val:
                     break
@@ -455,39 +450,38 @@ class ConicSolver:
 
         return True #### TODO TODO
 
-
-
-
-
     # based on Nettelblad's changed backtracking logic for TFOCS
     # handles numerical errors better
     def backtrack(self, x, y, f_y, g_x, g_y, A_y, g_Ax, g_Ay, smooth_func):
+        counter_Ax = 0 # ?
 
+        # instead of setting a do_break variable (which
+        # is always done in the context of a break/return
+        # in tfocs for matlab version >= R2015b
+        # we simply return True and account for this in the
+        # call to this function
         if self.beta >= 1:
-            return
+            return True
 
         xy = x - y
 
-        ## TODO TODO TODO
-
         # TODO: double check parenthesis
         val = max(abs(xy.flatten()) - np.finfo(max(max(abs(xy.flatten())), max(abs(x.flatten()), abs(y.flatten())))))
-        xy_sq = square_norm(val)  # TODO: correct square norm?
-        ## TODO TODO TODO
+        xy_sq = square_norm(val)
 
         if xy_sq == 0:
             self.L_local = float('inf')
-            return
-
+            return True
 
         # to handle numerical issues from the ratio being smaller than machine epsilon
+        # force reset
         if xy_sq / (square_norm(x)) < np.finfo(float).eps:
-            self.counter_Ax = float('inf')
+            counter_Ax = float('inf')
+            return True
 
         if self.g_Ax.size == 0 or np.isinf(self.f_x):
             self.f_x, self.g_Ax = smooth_func(self.A_x)
 
-        # not sure what to call this temp variable
         # in tfocs_backtrack it simply overwrites backtrack_simple
         # before changing again in the next lines
         within_tolerance = abs(f_y - self.f_x) >=\
@@ -519,7 +513,7 @@ class ConicSolver:
             self.L_local = max(self.L, self.L_local)
 
         if self.L_local <= self.L or self.L_local >= self.L_exact:
-            return # analogous to break in matlab script?
+            return True # analogous to break in matlab script?
 
         # isinf would be strange here since self.L_local should be a number
         # TODO: check other isinfs
