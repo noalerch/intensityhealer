@@ -92,9 +92,6 @@ class ConicSolver:
         theta = float('inf')
         f_v_old = float('inf')
 
-        # TODO: investigate if empty lists should be numpy arrays instead
-        # x = [] # FIXME: taken from matlab (TFOCS), should probably be number
-
         counter_Ay = 0
         counter_Ax = 0
 
@@ -263,8 +260,10 @@ class ConicSolver:
                                          self.stop_criterion in [3, 4])
 
             # unsure of these tfocs_iterate.m lines 60-1
-            comp_x = [np.isinf(self.f_x), need_dual * np.isempty(self.g_Ax), np.isinf(self.C_x)]
-            comp_y = [np.isinf(f_y), need_dual * np.isempty(self.g_Ay), np.isinf(self.C_y)]
+            # TODO: we will likely run into errors and unexpected behavior
+            #       between 0-1 ints, bools, and arrays of bools
+            comp_x = np.array([np.isinf(self.f_x), need_dual * np.isempty(self.g_Ax), np.isinf(self.C_x)])
+            comp_y = np.array([np.isinf(f_y), need_dual * np.isempty(self.g_Ay), np.isinf(self.C_y)])
 
             if np.sum(comp_x) <= np.sum(comp_y) or self.stop_criteria_always_use_x:
 
@@ -299,11 +298,12 @@ class ConicSolver:
 
             # TODO: llnes 84-96 in tfocs_iterate.m
             #       likely unnecessary for COACS
-            print("Unexpected! Please implement lines 84 from tfocs_iterate.m")
+            raise RuntimeWarning("Unexpected! Please implement lines 84 from tfocs_iterate.m")
 
 
 
-        #    # TODO: finish this part
+        # TODO: finish this part
+        #       i cannot remember why this TODO exists. remove?
         #    comp_x = [np.isinf(f_x), need_dual]
 
 
@@ -351,6 +351,7 @@ class ConicSolver:
             # TODO: ignoring this case for now
             #       please investigate but it does not seem error_function in this impl
             #       will ever be a matlab cell array equivalent...
+            #       (also, it is null in COACS)
             #if self.error_function is not None and np.iscell(self.error_function):
             #    errs = np.zeros(1, )
 
@@ -386,20 +387,22 @@ class ConicSolver:
 
             # NOTE: matlab fprintf prints to file!
             #       could perhaps use more elegant write method
-            print(to_print, file=self.fid)
+            # TODO: all prints are for now just to stdout
+            print(to_print) #, file=self.fid)
 
             if self.count_ops:
-                print("|", file=self.fid)
+                print("|") # , file=self.fid)
 
                 # TODO: tfocs_count___ is array??
-                print("%5d", self.count, file=self.fid)
+                print("%5d", self.count) #, file=self.fid)
 
             if self.error_function is not None:
                 if self.count_ops:
-                    print(' ', file=self.fid)
+                    print(' ') #, file=self.fid)
 
-                print('|', file=self.fid)
+                print('|') #, file=self.fid)
                 # TODO: no errs since error function is null by default
+                #       thus, ignore for now
                 # print(" {:8.2e}".format(errs))
 
             # display number used to determine stopping
@@ -416,17 +419,17 @@ class ConicSolver:
                     raise Exception(f"stop criterion {self.stop_criterion} not yet implemented")
 
                 if self.error_function is not None or self.count_ops:
-                    print(' ', file=self.fid)
+                    print(' ') # , file=self.fid)
 
-                print('|', file=self.fid)
+                print('|') #, file=self.fid)
 
                 # assumes stop_resid exists (i. e. stop_criterion == 1)
-                print(" %8.2e", stop_resid, file=self.fid) # hopefully correct syntax
+                print(" %8.2e", stop_resid) # , file=self.fid) # hopefully correct syntax
 
             if self.print_restart and self.just_restarted:
-                print(' | restarted', file=self.fid)
+                print(' | restarted') #, file=self.fid)
 
-            print('\n', file=self.fid)
+            print('\n') # , file=self.fid)
 
         # extending arrays if needed
         if self.save_history:
@@ -515,10 +518,9 @@ class ConicSolver:
         if self.L_local <= self.L or self.L_local >= self.L_exact:
             return True # analogous to break in matlab script?
 
-        # isinf would be strange here since self.L_local should be a number
-        # TODO: check other isinfs
-        # if np.isinf(self.L_local)
-        if self.L_local == float('inf'):
+        # if np.isinf(self.L_local):
+        #    pass
+        elif self.L_local == float('inf'):
             self.L_local = self.L
 
         self.L = min(self.L_exact, self.L / self.beta)
