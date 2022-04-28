@@ -1,6 +1,7 @@
 import math
 import numpy as np
 
+
 class ConicSolver:
     def __init__(self) -> None:
         # instance attributes taken from tfocs_initialize.m
@@ -161,22 +162,24 @@ class ConicSolver:
                 # new iteration
                 if theta == 1:
                     x = z
-                    A_x = A_z
-                    C_x = C_z
+
+                    # assuming these are not just locally scoped
+                    self.A_x = A_z
+                    self.C_x = C_z
 
                 else:
                     x = (1 - theta) * x_old + theta * z
 
                     if counter_Ax >= self.counter_reset:
                         counter_Ax = 0
-                        A_x = linear_func(x, 1)
+                        self.A_x = linear_func(x, 1)
                     else:
                         counter_Ax += 1
-                        A_x = (1 - theta) * A_x_old + theta * A_z
+                        self.A_x = (1 - theta) * A_x_old + theta * A_z
 
-                    C_x = float('inf')
+                    self.C_x = float('inf')
 
-                f_x = float('inf')
+                self.f_x = float('inf')
 
                 g_Ax = np.array([])
                 g_x = np.array([])
@@ -227,10 +230,10 @@ class ConicSolver:
         elif self.stop_criterion == 1 and norm_dx == 0:
             if self.n_iter > 1:
                 status = "Step size tolerance reached (||dx||=0)"
-        elif self.stop_criterion == 1 and norm_dx < self.tol * max(norm_x, 1):
+        elif self.stop_criterion == 1 and norm_dx < self.tolerance * max(norm_x, 1):
             status = "Step size tolerance reached"
 
-        elif self.stop_criterion == 2 and self.L * math.sqrt(xy_sq) < self.tol * max(norm_x, 1):
+        elif self.stop_criterion == 2 and self.L * math.sqrt(xy_sq) < self.tolerance * max(norm_x, 1):
             status = "Step size tolerance reached"
         elif self.n_iter == self.max_iterations:
             status = "Iteration limit reached"
@@ -338,7 +341,7 @@ class ConicSolver:
                     C_x = projector_function(x)
 
                 # might be incorrect, if f_X and C_x are arrays
-                f_v = self.max_min * (f_x + C_x)
+                f_v = self.max_min * (self.f_x + self.C_x)
                 cur_pri = x # want better name but idk what this means
                 v_is_x = True
                 # Undo calculations

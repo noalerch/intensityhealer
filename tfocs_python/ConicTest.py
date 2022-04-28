@@ -6,4 +6,5 @@ def main():
     print(solver.test_method())
     print(solver)
 
+
 main()
