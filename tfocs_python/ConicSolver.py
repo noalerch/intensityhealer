@@ -202,8 +202,38 @@ class ConicSolver:
         if v_is_y and not self.output_always_use_x \
             and not self.data_collection_always_use_x:
 
-            f_vy = self.f_v
-            if self.
+            f_vy = f_v
+            if self.saddle:
+                dual_y = cur_dual
+
+        if not v_is_x:
+            if self.saddle:
+                if self.g_Ax is None:
+                    self.f_x, self.g_Ax = smooth(self.A_x)
+
+                cur_dual = get_dual(self.g_Ax)
+
+            elif np.isinf(self.C_x):
+                self.C_x = projector(x)
+
+            f_v = self.max_min * (self.f_x + self.C_x)
+            cur_pri = self.x
+
+        # take whichever of x or y is better
+        x_or_y_string = 'x'
+        if v_is_y and not self.output_always_use_x and f_vy < f_v:
+                f_v = f_vy
+
+                if self.saddle:
+                    cur_dual = dual_y
+
+                x = y
+                x_or_y_string = 'y'
+
+        if self.saddle:
+            
+
+
 
 
     # based on tfocs_iterate.m script
