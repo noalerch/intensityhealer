@@ -196,9 +196,15 @@ class ConicSolver:
 
         self.cleanup()
 
-    # no idea what this method should do rofl
     def cleanup(self):
-        pass
+        # TODO: cur_dual
+
+        if v_is_y and not self.output_always_use_x \
+            and not self.data_collection_always_use_x:
+
+            f_vy = self.f_v
+            if self.
+
 
     # based on tfocs_iterate.m script
     def iterate(self, x, y, x_old, A_y, f_y,
@@ -528,10 +534,6 @@ class ConicSolver:
 
         self.L = min(self.L_exact, self.L / self.beta)
 
-
-
-
-
     # assuming countOps (?), see tfocs_initialize.m line 398
     # TODO: remove varargin?
     def apply_projector(self, varargin, projector_function):
@@ -541,7 +543,6 @@ class ConicSolver:
         # false by default
         else:
             return projector_function(varargin)
-
 
     # TODO? ignore for now
     def apply_linear(self, x, mode):
