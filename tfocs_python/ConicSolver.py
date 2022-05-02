@@ -80,13 +80,16 @@ class ConicSolver:
 
         self.just_restarted = False
 
+        self.output = None
+
     def auslender_teboulle(self, smooth_func, affine_func, projector_func, linear_func, x0):
         """Auslender & Teboulle's method
         args:
             smooth_func: function for smooth
 
         """
-        alg = 'AT'
+
+        self.output = SolverOutput('AT')
 
         # following taken from tfocs_initialize.m
         L = self.L_0
@@ -230,7 +233,42 @@ class ConicSolver:
                 x = y
                 x_or_y_string = 'y'
 
-        if self.saddle:
+        # ignoring because not saddle by default in tfocs
+        # if self.saddle:
+
+        if self.fid and self.print_every:
+            print("Finished: %s\n" % status)  # , file=self.fid)
+
+        self.output.n_iter = self.n_iter
+        self.output.status = status
+        self.output.x_or_y = x_or_y_string
+
+        # TODO: d description var
+
+        if self.save_history:
+            # where does f come from?
+            self.output.f[n_iter - 1] = f_v # TODO: matlab vs python indexing?
+
+            # this just clearing an array?
+            # self.output.f[n_iter:end] = [] # TODO fix this
+
+            # i think what we want is to delete (np.delete()) the elements
+            # of the array after n_iter
+            self.output.f = self.output.f[:n_iter]  # only the first n_iter elements
+            self.output.norm_grad = self.output.norm_grad[:n_iter]
+            self.output.theta = self.output.theta[:n_iter]  # assuming numpy works this way
+
+            if self.count_ops:
+                self.output.counts = self.output.counts[:n_iter]
+
+                # assume empty error function
+
+                # TODO: descriptions
+
+                if self.count_ops:
+                    self.count = np.array([0, 0, 0, 0, 0])
+
+
 
 
 
