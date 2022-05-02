@@ -231,7 +231,7 @@ class ConicSolver:
                 x_or_y_string = 'y'
 
         if self.saddle:
-            
+
 
 
 
