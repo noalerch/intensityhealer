@@ -69,26 +69,28 @@ class ConicSolver:
 
         self.f_v = None  # i don't know
 
-        self.x = np.array([])
-        self.A_x = np.array([])
-        self.f_x = float('inf')
-        self.C_x = float('inf')
-        self.g_x = np.array([])
-        self.g_Ax = np.array([])
+        self.iv = IterationVariables
 
-        self.y = self.x
-        self.A_y = self.A_x
-        self.f_y = self.f_x
-        self.g_y = self.g_x
-        self.g_Ay = self.g_Ax
-        self.C_y = self.C_x
-
-        self.z = self.x
-        self.A_z = self.A_x
-        self.f_z = self.f_x
-        self.g_z = self.g_x
-        self.gA_z = self.g_Ax
-        self.C_z = self.C_x
+        # self.x = np.array([])
+        # self.A_x = np.array([])
+        # self.f_x = float('inf')
+        # self.C_x = float('inf')
+        # self.g_x = np.array([])
+        # self.g_Ax = np.array([])
+        #
+        # self.y = self.x
+        # self.A_y = self.A_x
+        # self.f_y = self.f_x
+        # self.g_y = self.g_x
+        # self.g_Ay = self.g_Ax
+        # self.C_y = self.C_x
+        #
+        # self.z = self.x
+        # self.A_z = self.A_x
+        # self.f_z = self.f_x
+        # self.g_z = self.g_x
+        # self.g_Az = self.g_Ax
+        # self.C_z = self.C_x
 
         self.restart_iter = 0
         self.warning_lipschitz = False  # 0 in matlab
@@ -100,7 +102,7 @@ class ConicSolver:
 
         self.output = None
 
-    def auslender_teboulle(self, smooth_func, affine_func, projector_func, linear_func, x0):
+    def auslender_teboulle(self, iv, smooth_func, affine_func, projector_func, linear_func, x0):
         """Auslender & Teboulle's method
         args:
             smooth_func: function for smooth
@@ -122,9 +124,9 @@ class ConicSolver:
         # it is somewhat more comfortable if they are here rather than in __init__
 
         while True:
-            x_old = self.x
-            z_old = self.z
-            A_x_old = self.A_x
+            x_old = iv.x
+            z_old = iv.z
+            A_x_old = iv.A_x
             A_z_old = self.A_z
 
             # backtracking loop
@@ -139,11 +141,11 @@ class ConicSolver:
 
                 # next iteration
                 if self.theta < 1:
-                    self.y = (1 - self.theta) * x_old + self.theta * z_old
+                    iv.y = (1 - self.theta) * x_old + self.theta * z_old
 
                     if counter_Ay >= self.counter_reset:
                         # A_y = self.apply_linear(y, 1)
-                        self.A_y = linear_func(self.y, 1) #, mode) # ignoring mode for now
+                        iv.A_y = linear_func(iv.y, 1) #, mode) # ignoring mode for now
 
                         counter_Ay = 0
 
@@ -151,12 +153,12 @@ class ConicSolver:
                         counter_Ay += 1
                         A_y = (1 - self.theta) * A_x_old + self.theta * A_z_old
 
-                self.f_y = float('inf')
-                self.g_Ay = np.array([]) # should be numpy array?
-                self.g_y = np.array([]) # see above
+                iv.f_y = float('inf')
+                iv.g_Ay = np.array([]) # should be numpy array?
+                iv.g_y = np.array([]) # see above
 
-                if self.g_y.size == 0:
-                    if self.g_Ay.size == 0:
+                if iv.g_y.size == 0:
+                    if iv.g_Ay.size == 0:
 
                         # syntax makes no sense
                         # np.array([f_y, g_Ay]) = self.apply_smooth(A_y)
@@ -166,7 +168,7 @@ class ConicSolver:
                         # apply_smooth = @(x)solver_apply(1: (1 + (nargoutt > 1)), smoothF, x );
                         # we just perform the smooth function directly
 
-                        self.g_y = linear_func(self.g_Ay, 2)
+                        iv.g_y = linear_func(self.g_Ay, 2)
                         # g_y = self.apply_linear(g_Ay, 2)
 
                 step = 1 / (self.theta * L)
@@ -282,9 +284,11 @@ class ConicSolver:
                     self.count = np.array([0, 0, 0, 0, 0])
 
     # based on tfocs_iterate.m script
-    def iterate(self, x, y, x_old, A_y, f_y,
-                smooth_function, projector_function):
+    def iterate(self, iv, x_old, smooth_function, projector_function):
         status = ""
+
+        v_is_x = False
+        v_is_y = False
 
         # this kind of defeats the purpose of data_collection_always_use_x
         # but this is a simple solution
@@ -293,15 +297,15 @@ class ConicSolver:
 
         # test for positive stopping criteria
         new_iter = self.n_iter + 1
-        norm_x = np.linalg.norm(x)
-        norm_dx = np.linalg.norm(x - x_old)
+        norm_x = np.linalg.norm(iv.x)
+        norm_dx = np.linalg.norm(iv.x - x_old)
 
         xy_sq = 0  # placeholder
 
         # legacy stopping criteria
         # not necessary for jackdaw-based COACS
         if self.stop_criterion == 2 and self.beta >= 1:
-            xy = x - y
+            xy = iv.x - iv.y
 
             xy_sq = square_norm(xy)
 
@@ -311,7 +315,7 @@ class ConicSolver:
 
         # could perhaps use match-case which was introduced in Python 3.10
         # avoiding this due to compatibility issues
-        if np.isnan(f_y):
+        if np.isnan(iv.f_y):
             status = "NaN found -- aborting"
         elif self.stop_criterion == 1 and norm_dx == 0:
             if self.n_iter > 1:
@@ -336,50 +340,48 @@ class ConicSolver:
             if not self.saddle:
                 raise "stop criterion {3, 4} requires a saddle point problem"
 
-
-        ### Use function value for y instead of x if cheaper
-        ### This part determines computational cost before continuing
-        v_is_x = False
-        v_is_y = False
+        # Use function value for y instead of x if cheaper
+        # This part determines computational cost before continuing
 
         # Honestly unsure if any of these conditions will ever be true in COACS
         # particularly in the second clause
         if (status == "" or limit_reached) and (self.stop_function is not None
                 or self.restart < 0 or self.stop_criterion in [3, 4]):
+
             need_dual = self.saddle and (self.stop_function is None or
                                          self.stop_criterion in [3, 4])
 
             # unsure of these tfocs_iterate.m lines 60-1
-            # TODO: we will likely run into errors and unexpected behavior
+            # TODO: we may run into errors and unexpected behavior
             #       between 0-1 ints, bools, and arrays of bools
-            comp_x = np.array([np.isinf(self.f_x), need_dual * np.isempty(self.g_Ax), np.isinf(self.C_x)])
-            comp_y = np.array([np.isinf(f_y), need_dual * np.isempty(self.g_Ay), np.isinf(self.C_y)])
+            comp_x = np.array([np.isinf(iv.f_x), need_dual * np.isempty(iv.g_Ax), np.isinf(iv.C_x)])
+            comp_y = np.array([np.isinf(iv.f_y), need_dual * np.isempty(iv.g_Ay), np.isinf(iv.C_y)])
 
             if np.sum(comp_x) <= np.sum(comp_y) or self.stop_criteria_always_use_x:
 
                 if comp_x[2]:
-                    self.f_x, self.g_Ax = smooth_function(self.A_x)
+                    iv.f_x, iv.g_Ax = smooth_function(iv.A_x)
                 elif comp_x[1]:
-                    self.f_x = smooth_function(self.A_x)
+                    iv.f_x = smooth_function(iv.A_x)
 
-                current_priority = x
+                current_priority = iv.x
                 if self.saddle:
-                    current_dual = self.g_Ax
-                self.f_v = np.maxmin(self.f_x + self.C_x)
+                    current_dual = iv.g_Ax
+                iv.f_v = np.maxmin(iv.f_x + iv.C_x)
                 v_is_x = True
 
             else:
 
                 if comp_y[2]:
-                    f_y, g_Ay = smooth_function(A_y)
+                    iv.f_y, iv.g_Ay = smooth_function(iv.A_y)
                 elif comp_y[1]:
-                    f_y = smooth_function(A_y)
+                    iv.f_y = smooth_function(iv.A_y)
 
-                current_priority = y
+                current_priority = iv.y
                 if self.saddle:
-                    current_dual = self.g_Ay
+                    current_dual = iv.g_Ay
 
-                self.f_v = np.maxmin(f_y + self.C_y)
+                self.f_v = np.maxmin(iv.f_y + iv.C_y)
                 v_is_y = True
 
                 if self.data_collection_always_use_x:
@@ -412,29 +414,29 @@ class ConicSolver:
 
             if (self.data_collection_always_use_x and not v_is_x) or (not v_is_x and not v_is_y):
 
-                f_x_save = self.f_x
-                g_Ax_save = self.g_Ax
+                f_x_save = iv.f_x
+                g_Ax_save = iv.g_Ax
 
                 # both of these should be false for COACS
                 if self.error_function is not None and self.saddle:
 
-                    if self.g_Ax is not None:
-                        self.f_x, self.g_Ax = smooth_function(self.A_x)
+                    if iv.g_Ax is not None:
+                        iv.f_x, iv.g_Ax = smooth_function(iv.A_x)
 
-                    current_dual = self.g_Ax
+                    current_dual = iv.g_Ax
 
-                if np.isinf(self.f_x):
-                    self.f_x = smooth_function(self.A_x)
+                if np.isinf(iv.f_x):
+                    iv.f_x = smooth_function(iv.A_x)
 
-                if np.isinf(self.C_x):
-                    self.C_x = projector_function(self.x)
+                if np.isinf(iv.C_x):
+                    iv.C_x = projector_function(iv.x)
 
-                f_v = self.max_min * (self.f_x + self.C_x)
-                cur_pri = x # want better name but idk what this means
+                f_v = self.max_min * (iv.f_x + iv.C_x)
+                cur_pri = iv.x # want better name but idk what this means
                 v_is_x = True
                 # Undo calculations
-                self.f_x = f_x_save
-                self.g_Ax = g_Ax_save
+                iv.f_x = f_x_save
+                iv.g_Ax = g_Ax_save
 
             # if ~isempty(errFcn) & & iscell(errFcn)
             # python has no cell array (most like Python list)
@@ -559,19 +561,7 @@ class ConicSolver:
             self.backtrack_simple = True
             self.theta = float('inf')
 
-            self.y = self.x
-            self.A_y = self.A_x
-            self.f_y = self.f_x
-            self.g_y = self.g_x
-            self.g_Ay = self.g_Ax
-            self.C_y = self.C_x
-
-            self.z = self.x
-            self.A_z = self.A_x
-            self.f_z = self.f_x
-            self.g_z = self.g_x
-            self.g_Az = self.g_Ax
-            self.C_z = self.C_x
+            iv.reset_yz
 
             self.f_v_old = self.max_min * float('inf')
 
@@ -583,7 +573,7 @@ class ConicSolver:
 
     # based on Nettelblad's changed backtracking logic for TFOCS
     # handles numerical errors better
-    def backtrack(self, smooth_func, counter_Ax):
+    def backtrack(self, iv, counter_Ax, smooth_func):
 
         # instead of setting a do_break variable (which
         # is always done in the context of a break/return
@@ -593,7 +583,7 @@ class ConicSolver:
         if self.beta >= 1:
             return True, counter_Ax
 
-        xy = self.x - self.y
+        xy = iv.x - iv.y
 
         # TODO: double check parenthesis
         val = max(abs(xy.flatten()) - np.finfo(max(max(abs(xy.flatten())), max(abs(self.x.flatten()), abs(self.y.flatten())))))
@@ -605,30 +595,30 @@ class ConicSolver:
 
         # to handle numerical issues from the ratio being smaller than machine epsilon
         # force reset
-        if xy_sq / (square_norm(self.x)) < np.finfo(float).eps:
+        if xy_sq / (square_norm(iv.x)) < np.finfo(float).eps:
             counter_Ax = float('inf')
             return True, counter_Ax
 
-        if self.g_Ax.size == 0 or np.isinf(self.f_x):
-            self.f_x, self.g_Ax = smooth_func(self.A_x)
+        if iv.g_Ax.size == 0 or np.isinf(iv.f_x):
+            iv.f_x, iv.g_Ax = smooth_func(iv.A_x)
 
         # in tfocs_backtrack it simply overwrites backtrack_simple
         # before changing again in the next lines
-        within_tolerance = abs(self.f_y - self.f_x) >=\
-                                self.backtrack_tol * max(max(abs(self.f_x),
-                                                             abs(self.f_y)), 1)
+        within_tolerance = abs(iv.f_y - iv.f_x) >=\
+                                self.backtrack_tol * max(max(abs(iv.f_x),
+                                                             abs(iv.f_y)), 1)
 
         # .^ is in matlab elementwise power, we represent as **
         self.backtrack_simple = within_tolerance and (abs(xy_sq) >= self.backtrack_tol**2)
 
         # assuming np.dot is equivalent to tfocs_dot
-        L_local_origin = 2 * np.dot(self.A_x - self.A_y, self.g_Ax - self.g_Ay) / xy_sq
+        L_local_origin = 2 * np.dot(iv.A_x - iv.A_y, iv.g_Ax - iv.g_Ay) / xy_sq
 
         self.L_local = max(self.L, L_local_origin)
 
-        q_x = np.dot(xy, self.g_y + 0.5 * self.L * xy)
+        q_x = np.dot(xy, iv.g_y + 0.5 * self.L * xy)
 
-        L_local_2 = self.L + 2 * max((self.f_x - self.f_y) - q_x + max([np.finfo(float).eps(self.f_x), np.finfo(float).eps(self.f_y), np.finfo(float).eps(q_x), np.finfo(float).eps(self.f_x - self.f_y)]), 0) / xy_sq
+        L_local_2 = self.L + 2 * max((iv.f_x - iv.f_y) - q_x + max([np.finfo(float).eps(self.f_x), np.finfo(float).eps(iv.f_y), np.finfo(float).eps(q_x), np.finfo(float).eps(iv.f_x - iv.f_y)]), 0) / xy_sq
 
         if self.backtrack_simple:
             self.L_local = min(self.L_local, L_local_2)
@@ -639,7 +629,7 @@ class ConicSolver:
 
         self.backtrack_steps += 1
 
-        if self.f_x - self.f_y > 0:
+        if iv.f_x - iv.f_y > 0:
             self.L_local = max(self.L, self.L_local)
 
         if self.L_local <= self.L or self.L_local >= self.L_exact:
@@ -668,7 +658,7 @@ class ConicSolver:
             return projector_function(varargin)
 
     # TODO? ignore for now
-    def apply_linear(self, x, mode):
+    def apply_linear(self, mode):
         pass
         # this can't be right lol
         # return self.solver_apply(3, self.linear_function, x, mode)
@@ -695,6 +685,7 @@ class ConicSolver:
         theta_scale = (1 - ratio) / (1 + ratio)
         return min(1.0, theta_old * theta_scale)
 
+
 class SolverOutput:
     def __init__(self, alg, f):
         self.alg = alg
@@ -702,6 +693,45 @@ class SolverOutput:
         self.theta = np.array([])
         self.step_size = np.array([])
         self.norm_grad = np.array([])
+
+
+class IterationVariables:
+    def __init__(self):
+        self.x = np.array([])
+        self.A_x = np.array([])
+        self.f_x = float('inf')
+        self.C_x = float('inf')
+        self.g_x = np.array([])
+        self.g_Ax = np.array([])
+
+        self.y = self.x
+        self.A_y = self.A_x
+        self.f_y = self.f_x
+        self.g_y = self.g_x
+        self.g_Ay = self.g_Ax
+        self.C_y = self.C_x
+
+        self.z = self.x
+        self.A_z = self.A_x
+        self.f_z = self.f_x
+        self.g_z = self.g_x
+        self.g_Az = self.g_Ax
+        self.C_z = self.C_x
+
+    def reset_yz(self):
+        self.y = self.x
+        self.A_y = self.A_x
+        self.f_y = self.f_x
+        self.g_y = self.g_x
+        self.g_Ay = self.g_Ax
+        self.C_y = self.C_x
+
+        self.z = self.x
+        self.A_z = self.A_x
+        self.f_z = self.f_x
+        self.g_z = self.g_x
+        self.g_Az = self.g_Ax
+        self.C_z = self.C_x
 
 def square_norm(arr):
     return math.sqrt(np.dot(arr, arr))
