@@ -435,7 +435,7 @@ class ConicSolver:
 
         # iterate line 226
         if status == "" and self.beta < 1 and self.backtrack_simple \
-                             and self.L_local > self.L_exact:
+                and self.L_local > self.L_exact:
             # NOTE: it appears localL in TFOCS arises from the backtracking logic
             # we put L_local as a class instance attribute
             self.warning_lipschitz = True
@@ -623,9 +623,6 @@ class ConicSolver:
         self.L = min(self.L_exact, self.L / self.beta)
 
         return False, counter_Ax
-
-
-
 
     # assuming countOps (?), see tfocs_initialize.m line 398
     # TODO: remove varargin?
