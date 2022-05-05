@@ -83,6 +83,10 @@ class ConicSolver:
 
         self.output = None
 
+        self.apply_linear = None
+
+
+
     def auslender_teboulle(self, iv, smooth_func, affine_func, projector_func, linear_func, x0):
         """Auslender & Teboulle's method
         args:
@@ -635,14 +639,46 @@ class ConicSolver:
             return projector_function(varargin)
 
     # TODO? ignore for now
-    def apply_linear(self, mode):
-        pass
+    #def apply_linear(self, mode):
+    #    pass
         # this can't be right lol
         # return self.solver_apply(3, self.linear_function, x, mode)
 
+    # calculating gradient may be more expensive than just getting value
+    # at x, so TODO: make gradient optional.
+    # perhaps two different functions?
+
+    def set_linear(self, linear_function, mode):
+        if self.count_ops:
+            self.apply_linear = lambda x: self.solver_apply(3, linear_function, [x, mode])
+        else:
+            self.apply_linear = lambda x: linear_function(x)
+
+    def set_smooth(self, smooth_function):
+        if self.count_ops:
+            # TODO: first argument to solver_apply is strange
+            self.apply_smooth = lambda x: self.solver_apply(1, smooth_function, [x])
+            self.apply_smooth_gradient = None  # TODO
+
+        else:
+            self.apply_smooth = smooth_function
+            self.apply_smooth_gradient = None  # TODO
+
+    def set_projector(self, projector_function):
+        if self.count_ops:
+            self.apply_projector = lambda args: self.solver_apply(4, projector_function, args)
+            self.apply_projector_gradient = None
+
+        else:
+            self.apply_projector = projector_function
+            self.apply_projector_gradient = None
+
+
+
     # TODO
-    def solver_apply(self):
-        pass
+    def solver_apply(self, ndxs, func, args):
+        self.count[ndxs] += 1
+        return func(*args)
 
     # TODO
     def linear_function(self):
