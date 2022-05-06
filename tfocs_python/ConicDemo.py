@@ -9,3 +9,8 @@ def TestQuadratic():
 	D = D0 * np.transpose(D0) + 0.5 * np.identity(N)
 	x_star = - np.divide(D, c)
 	x0 = np.zeros(N)
+
+
+def smooth_quad(P = np.identity(2), q = 0, r = 0, use_eig = 0):
+
+

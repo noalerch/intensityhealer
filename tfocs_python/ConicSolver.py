@@ -84,8 +84,8 @@ class ConicSolver:
         self.output = None
 
         self.apply_linear = None
-
-
+        self.apply_smooth = None
+        self.apply_projector = None
 
     def auslender_teboulle(self, iv, smooth_func, affine_func, projector_func, linear_func, x0):
         """Auslender & Teboulle's method
@@ -648,32 +648,34 @@ class ConicSolver:
     # at x, so TODO: make gradient optional.
     # perhaps two different functions?
 
+    # The linear/smooth/projector functions work such that
+    # the optional argument grad determines whether or not
+    # the gradient should be provided along with the main
+    # value. if grad=1, then return 2-tuple of main value
+    # and gradient
+
     def set_linear(self, linear_function, mode):
         if self.count_ops:
-            self.apply_linear = lambda x: self.solver_apply(3, linear_function, [x, mode])
+            # hack to allow multiple return values
+            # pass grad = 1 to return gradient as well
+            self.apply_linear = lambda x, grad = 0: self.solver_apply(2, linear_function, [x, mode, grad])
         else:
-            self.apply_linear = lambda x: linear_function(x)
+            self.apply_linear = lambda x, grad = 0: linear_function(x, grad)
 
     def set_smooth(self, smooth_function):
         if self.count_ops:
             # TODO: first argument to solver_apply is strange
-            self.apply_smooth = lambda x: self.solver_apply(1, smooth_function, [x])
-            self.apply_smooth_gradient = None  # TODO
-
+            self.apply_smooth = lambda x, grad = 0: self.solver_apply([i for i in range(0, 1 + grad)],
+                                                                      smooth_function, [x, grad])
         else:
             self.apply_smooth = smooth_function
-            self.apply_smooth_gradient = None  # TODO
 
     def set_projector(self, projector_function):
         if self.count_ops:
-            self.apply_projector = lambda args: self.solver_apply(4, projector_function, args)
-            self.apply_projector_gradient = None
-
+            self.apply_projector = lambda args, grad = 0: self.solver_apply([i for i in range(3, 4 + grad)],
+                                                                        projector_function, args)
         else:
             self.apply_projector = projector_function
-            self.apply_projector_gradient = None
-
-
 
     # TODO
     def solver_apply(self, ndxs, func, args):
