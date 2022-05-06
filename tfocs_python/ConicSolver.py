@@ -7,7 +7,7 @@ def square_norm(arr):
 
 
 class ConicSolver:
-    def __init__(self) -> None:
+    def __init__(self, smooth_func, affine_func, projector_func, x0) -> None:
         # instance attributes taken from tfocs_initialize.m
         self.max_iterations = float('inf')
         self.max_counts = float('inf')
@@ -84,13 +84,29 @@ class ConicSolver:
         self.output = None
 
         self.apply_linear = None
-        self.apply_smooth = None
-        self.apply_projector = None
 
-    def auslender_teboulle(self, iv, smooth_func, affine_func, projector_func, linear_func, x0):
+        self.apply_smooth = None  # ?
+        self.set_smooth(smooth_func)
+
+        self.apply_projector = None
+        self.set_projector(projector_func)
+
+    def solve(self):
+        """
+
+        assumes Auslender-Teboulle algorithm for now
+        """
+        iv = IterationVariables
+
+        self.auslender_teboulle(iv)
+
+        return self.output
+
+    def auslender_teboulle(self, iv):
         """Auslender & Teboulle's method
         args:
             smooth_func: function for smooth
+            affine_func: function for smooth
 
         """
 
@@ -130,7 +146,7 @@ class ConicSolver:
 
                     if counter_Ay >= self.counter_reset:
                         # A_y = self.apply_linear(y, 1)
-                        iv.A_y = linear_func(iv.y, 1) #, mode) # ignoring mode for now
+                        iv.A_y = self.apply_linear(iv.y, 1) #, mode) # ignoring mode for now
 
                         counter_Ay = 0
 
@@ -153,14 +169,14 @@ class ConicSolver:
                         # apply_smooth = @(x)solver_apply(1: (1 + (nargoutt > 1)), smoothF, x );
                         # we just perform the smooth function directly
 
-                        iv.g_y = linear_func(iv.g_Ay, 2)
+                        iv.g_y = self.apply_linear(iv.g_Ay, 2)
                         # g_y = self.apply_linear(g_Ay, 2)
 
                 step = 1 / (self.theta * L)
 
                 # np.array[C_z, z] = projector_function(z_old - step * g_y, step)
-                iv.C_z, iv.z = projector_func(z_old - step * iv.g_y, step)
-                iv.A_z = linear_func(iv.z, 1)
+                iv.C_z, iv.z = self.apply_projector(z_old - step * iv.g_y, step, grad=1)
+                iv.A_z = self.apply_linear(iv.z, 1)
 
                 # new iteration
                 if self.theta == 1:
@@ -174,7 +190,7 @@ class ConicSolver:
 
                     if counter_Ax >= self.counter_reset:
                         counter_Ax = 0
-                        iv.A_x = linear_func(iv.x, 1)
+                        iv.A_x = self.apply_linear(iv.x, 1)
                     else:
                         counter_Ax += 1
                         iv.A_x = (1 - self.theta) * A_x_old + self.theta * iv.A_z
@@ -186,19 +202,19 @@ class ConicSolver:
                 iv.g_Ax = np.array([])
                 iv.g_x = np.array([])
 
-                break_val = self.backtrack(iv, counter_Ax, smooth_func)
+                break_val = self.backtrack(iv, counter_Ax)
                 if break_val:
                     break
 
             # TODO: proper implementation of xy if we want to handle
             #       stopCrit 2
-            break_val, v_is_x, v_is_y, f_vy, status = self.iterate(iv, x_old, smooth_func, projector_func)
+            break_val, v_is_x, v_is_y, f_vy, status = self.iterate(iv, x_old)
             if break_val:
                 break
 
-        self.cleanup(v_is_x, v_is_y, f_vy, self.iv, smooth_func, projector_func, status)
+        self.cleanup(v_is_x, v_is_y, f_vy, self.iv, status)
 
-    def cleanup(self, v_is_x, v_is_y, f_vy, iv, smooth, projector, status):
+    def cleanup(self, v_is_x, v_is_y, f_vy, iv, status):
         # TODO: cur_dual (probably not needed for COACS)
         n_iter = self.n_iter
 
@@ -212,12 +228,12 @@ class ConicSolver:
         if not v_is_x:
             if self.saddle:
                 if iv.g_Ax is None:
-                    iv.f_x, iv.g_Ax = smooth(iv.A_x)
+                    iv.f_x, iv.g_Ax = self.apply_smooth(iv.A_x, grad=1)
 
                 # cur_dual = get_dual(self.g_Ax)
 
             elif np.isinf(iv.C_x):
-                iv.C_x = projector(iv.x)
+                iv.C_x = self.apply_projector(iv.x)
 
             self.f_v = self.max_min * (iv.f_x + iv.C_x)
             cur_pri = iv.x
@@ -628,15 +644,6 @@ class ConicSolver:
 
         return False, counter_Ax
 
-    # assuming countOps (?), see tfocs_initialize.m line 398
-    # TODO: remove varargin?
-    def apply_projector(self, varargin, projector_function):
-        if self.count_ops:
-            pass
-
-        # false by default
-        else:
-            return projector_function(varargin)
 
     # TODO? ignore for now
     #def apply_linear(self, mode):

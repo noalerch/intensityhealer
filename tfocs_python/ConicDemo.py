@@ -10,6 +10,14 @@ def TestQuadratic():
 	x_star = - np.divide(D, c)
 	x0 = np.zeros(N)
 
+	solver = CS.ConicSolver(smooth_quad, None, None, x0)
+
+	solver.restart = 100
+
+	out = solver.solve()
+
+
+
 
 def smooth_quad(P = np.identity(2), q = 0, r = 0, use_eig = 0):
 
