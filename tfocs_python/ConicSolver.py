@@ -58,7 +58,6 @@ class ConicSolver:
 
         # TODO: some more stuff
 
-        # TODO: smooth & projector function
 
         # TODO: max min
 
@@ -85,18 +84,33 @@ class ConicSolver:
 
         self.apply_linear = None
 
+        if self.adjoint:
+            pass  # TODO
+
+
+        # self.set_linear(linear_func)
+
         self.apply_smooth = None  # ?
         self.set_smooth(smooth_func)
 
         self.apply_projector = None
         self.set_projector(projector_func)
 
+        # TODO: check function types
+
+        # TODO: pass through projector
+
+        # TODO: get linear function from affine
+        #       linop_stack
+
+
+
     def solve(self):
         """
 
         assumes Auslender-Teboulle algorithm for now
         """
-        iv = IterationVariables
+        iv = IterationVariables()
 
         self.auslender_teboulle(iv)
 
@@ -717,6 +731,9 @@ class SolverOutput:
         self.norm_grad = np.array([])
         self.x_or_y = ""
         self.dual = None
+
+    def display(self):
+        print("Display not implemented!")
 
 
 class IterationVariables:

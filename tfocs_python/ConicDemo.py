@@ -1,4 +1,4 @@
-import ConicSolver as CS
+import ConicSolver
 import numpy as np
 
 def TestQuadratic():
@@ -10,15 +10,32 @@ def TestQuadratic():
 	x_star = - np.divide(D, c)
 	x0 = np.zeros(N)
 
-	solver = CS.ConicSolver(smooth_quad, None, None, x0)
+	f = lambda x: c * x + x * D * x/2  # hopefully correct
+	grad_f = lambda x: c + D * x
+	smooth_func = lambda x, grad: wrapper_objective(f, grad_f, x, grad)
+
+	solver = ConicSolver.ConicSolver(smooth_func, None, None, x0)
 
 	solver.restart = 100
 
 	out = solver.solve()
 
+	print(out)
 
 
+# unsure
+def wrapper_objective(f, g, x, grad=0):  # we just set it to return gradient by default
+	if grad:
+		return f(x), g(x)
+	else:
+		return f(x), None
 
 def smooth_quad(P = np.identity(2), q = 0, r = 0, use_eig = 0):
+	if np.isnumeric(P):
+		if np.isvector(P):
+			if any(P) < 0:  # in matlab this is checked twice ??????
+				raise Exception("P must be convex or concave but not both")
 
 
+
+TestQuadratic()
