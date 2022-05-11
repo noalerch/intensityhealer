@@ -222,7 +222,7 @@ class ConicSolver:
 
             # TODO: proper implementation of xy if we want to handle
             #       stopCrit 2
-            break_val, v_is_x, v_is_y, f_vy, status = self.iterate(iv, x_old)
+            break_val, v_is_x, v_is_y, f_vy, status = self.iterate(iv, x_old, A_x_old)
             if break_val:
                 break
 
@@ -299,7 +299,7 @@ class ConicSolver:
                     self.count = np.array([0, 0, 0, 0, 0])
 
     # based on tfocs_iterate.m script
-    def iterate(self, iv, x_old, smooth_function, projector_function):
+    def iterate(self, iv, A_x_old, x_old):
         status = ""
 
         v_is_x = False
@@ -375,9 +375,9 @@ class ConicSolver:
             if np.sum(comp_x) <= np.sum(comp_y) or self.stop_criteria_always_use_x:
 
                 if comp_x[2]:
-                    iv.f_x, iv.g_Ax = smooth_function(iv.A_x)
+                    iv.f_x, iv.g_Ax = self.apply_smooth(iv.A_x, grad=1)
                 elif comp_x[1]:
-                    iv.f_x = smooth_function(iv.A_x)
+                    iv.f_x = self.apply_smooth(iv.A_x, grad=1)
 
                 current_priority = iv.x
                 if self.saddle:
@@ -388,9 +388,9 @@ class ConicSolver:
             else:
 
                 if comp_y[2]:
-                    iv.f_y, iv.g_Ay = smooth_function(iv.A_y)
+                    iv.f_y, iv.g_Ay = self.apply_smooth(iv.A_y, grad=1)
                 elif comp_y[1]:
-                    iv.f_y = smooth_function(iv.A_y)
+                    iv.f_y = self.apply_smooth(iv.A_y, grad=1)
 
                 current_priority = iv.y
                 if self.saddle:
@@ -436,15 +436,15 @@ class ConicSolver:
                 if self.error_function is not None and self.saddle:
 
                     if iv.g_Ax is not None:
-                        iv.f_x, iv.g_Ax = smooth_function(iv.A_x)
+                        iv.f_x, iv.g_Ax = self.apply_smooth(iv.A_x, grad=1)
 
                     current_dual = iv.g_Ax
 
                 if np.isinf(iv.f_x):
-                    iv.f_x = smooth_function(iv.A_x)
+                    iv.f_x = self.apply_smooth(iv.A_x, grad=1)
 
                 if np.isinf(iv.C_x):
-                    iv.C_x = projector_function(iv.x)
+                    iv.C_x = self.apply_projector(iv.x)
 
                 self.f_v = self.max_min * (iv.f_x + iv.C_x)
                 cur_pri = iv.x # want better name but idk what this means
@@ -567,7 +567,12 @@ class ConicSolver:
         self.backtrack_steps = 0
         self.just_restarted = False
         do_auto_restart = False
-        # if self.restart < 0  # assume for now this never the case
+        if self.restart < 0:
+            if self.auto_restart == 'gra':
+                do_auto_restart = np.dot(iv.g_Ay, iv.A_x - A_x_old)
+
+            elif self.auto_restart == 'fun':
+                do_auto_restart = self.max_min * iv.f_v > self.max_min * self.f_v_old
 
         if self.n_iter - self.restart_iter == abs(round(self.restart)) \
                 or do_auto_restart:
@@ -588,7 +593,7 @@ class ConicSolver:
 
     # based on Nettelblad's changed backtracking logic for TFOCS
     # handles numerical errors better
-    def backtrack(self, iv, counter_Ax, smooth_func):
+    def backtrack(self, iv, counter_Ax):
 
         # instead of setting a do_break variable (which
         # is always done in the context of a break/return
@@ -615,7 +620,7 @@ class ConicSolver:
             return True, counter_Ax
 
         if iv.g_Ax.size == 0 or np.isinf(iv.f_x):
-            iv.f_x, iv.g_Ax = smooth_func(iv.A_x)
+            iv.f_x, iv.g_Ax = self.apply_smooth(iv.A_x, grad=1)
 
         # in tfocs_backtrack it simply overwrites backtrack_simple
         # before changing again in the next lines
