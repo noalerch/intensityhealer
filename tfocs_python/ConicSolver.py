@@ -5,9 +5,9 @@ import numpy as np
 def square_norm(arr):
     return math.sqrt(np.dot(arr, arr))
 
-
+# TODO: affine_func, projector_func are optional
 class ConicSolver:
-    def __init__(self, smooth_func, affine_func, projector_func, x0) -> None:
+    def __init__(self, smooth_func, linear_func, offset, projector_func, x0) -> None:
         # instance attributes taken from tfocs_initialize.m
         self.max_iterations = float('inf')
         self.max_counts = float('inf')
@@ -83,6 +83,10 @@ class ConicSolver:
         self.output = None
 
         self.apply_linear = None
+
+        # FIXME: this ONLY works correctly if affine_func is linear
+        self.set_linear(linear_func, offset)
+        print(self.apply_linear)
 
         if self.adjoint:
             pass  # TODO
@@ -160,7 +164,7 @@ class ConicSolver:
 
                     if counter_Ay >= self.counter_reset:
                         # A_y = self.apply_linear(y, 1)
-                        iv.A_y = self.apply_linear(iv.y, 1) #, mode) # ignoring mode for now
+                        iv.A_y = self.apply_linear(iv.y, 2)
 
                         counter_Ay = 0
 
@@ -680,13 +684,13 @@ class ConicSolver:
     # value. if grad=1, then return 2-tuple of main value
     # and gradient
 
-    def set_linear(self, linear_function, mode):
+    def set_linear(self, linear_function, offset):
         if self.count_ops:
             # hack to allow multiple return values
             # pass grad = 1 to return gradient as well
-            self.apply_linear = lambda x, grad = 0: self.solver_apply(2, linear_function, [x, mode, grad])
+            self.apply_linear = lambda x, mode, grad = 0: self.solver_apply(2, linear_function, [x, mode, grad])
         else:
-            self.apply_linear = lambda x, grad = 0: linear_function(x, grad)
+            self.apply_linear = lambda x, mode, grad = 0: linear_function(x, mode, grad)
 
     def set_smooth(self, smooth_function):
         if self.count_ops:
