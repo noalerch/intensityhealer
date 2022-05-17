@@ -7,7 +7,7 @@ def square_norm(arr):
 
 # TODO: affine_func, projector_func are optional
 class ConicSolver:
-    def __init__(self, smooth_func, linear_func, offset, projector_func, x0) -> None:
+    def __init__(self, smooth_func, affine, offset, projector_func, x0) -> None:
         # instance attributes taken from tfocs_initialize.m
         self.max_iterations = float('inf')
         self.max_counts = float('inf')
@@ -84,9 +84,14 @@ class ConicSolver:
 
         self.apply_linear = None
 
-        # FIXME: this ONLY works correctly if affine_func is linear
-        self.set_linear(linear_func, offset)
-        print(self.apply_linear)
+        # the way this works in TFOCS is that affineF
+        # is a cell array of an arbitrary amount of
+        # linear functions each paired with an offset
+        self.affine_handler(affines)
+
+
+        #self.set_linear(linear_func, offset)
+        #print(self.apply_linear)
 
         if self.adjoint:
             pass  # TODO
@@ -684,21 +689,34 @@ class ConicSolver:
     # value. if grad=1, then return 2-tuple of main value
     # and gradient
 
-    def set_linear(self, linear_function, offset):
+    def set_linear(self, linear_func, offset):
         if self.count_ops:
             # hack to allow multiple return values
             # pass grad = 1 to return gradient as well
-            self.apply_linear = lambda x, mode, grad = 0: self.solver_apply(2, linear_function, [x, mode, grad])
+            self.apply_linear = lambda x, mode, grad = 0: self.solver_apply(2, linear_func, [x, mode, grad])
         else:
-            self.apply_linear = lambda x, mode, grad = 0: linear_function(x, mode, grad)
+            self.apply_linear = lambda x, mode, grad = 0: linear_func(x, mode, grad)
 
-    def set_smooth(self, smooth_function):
+    def affine_handler(self, affines):
+        """
+
+        :param affines: list of pairs of linear functions and offsets (affine)
+        :return:
+        """
+        # TODO: fix input/output dimensions from projector and smooth
+        if affines == []:
+            # TODO: probably incomplete identity. for example, handle gradient?
+            self.apply_linear = lambda x: x
+        else:
+            
+
+    def set_smooth(self, smooth_func):
         if self.count_ops:
             # TODO: first argument to solver_apply is strange
             self.apply_smooth = lambda x, grad = 0: self.solver_apply([i for i in range(0, 1 + grad)],
-                                                                      smooth_function, [x, grad])
+                                                                      smooth_func, [x, grad])
         else:
-            self.apply_smooth = smooth_function
+            self.apply_smooth = smooth_func
 
     def set_projector(self, projector_function):
         if self.count_ops:
