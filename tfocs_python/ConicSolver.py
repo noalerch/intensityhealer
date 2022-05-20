@@ -87,7 +87,7 @@ class ConicSolver:
         # the way this works in TFOCS is that affineF
         # is a cell array of an arbitrary amount of
         # linear functions each paired with an offset
-        self.affine_handler(affines)
+        self.affine_handler(affine)
 
 
         #self.set_linear(linear_func, offset)
@@ -99,6 +99,7 @@ class ConicSolver:
 
         # self.set_linear(linear_func)
 
+        # TODO: should we support multiple smooth functions
         self.apply_smooth = None  # ?
         self.set_smooth(smooth_func)
 
@@ -697,14 +698,14 @@ class ConicSolver:
         else:
             self.apply_linear = lambda x, mode, grad = 0: linear_func(x, mode, grad)
 
-    def affine_handler(self, affines):
+    def affine_handler(self, affine):
         """
 
-        :param affines: list of pairs of linear functions and offsets (affine)
+        :param affine: list of pairs of linear functions and offsets (affine)
         :return:
         """
         # TODO: fix input/output dimensions from projector and smooth
-        if affines == []:
+        if affine == []:
             # TODO: probably incomplete identity. for example, handle gradient?
             self.apply_linear = lambda x: x
         else:
