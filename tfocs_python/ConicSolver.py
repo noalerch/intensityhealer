@@ -7,7 +7,7 @@ def square_norm(arr):
 
 # TODO: affine_func, projector_func are optional
 class ConicSolver:
-    def __init__(self, smooth_func, affine, offset, projector_func, x0) -> None:
+    def __init__(self, smooth_func, affine, projector_func, x0) -> None:
         # instance attributes taken from tfocs_initialize.m
         self.max_iterations = float('inf')
         self.max_counts = float('inf')
@@ -705,10 +705,11 @@ class ConicSolver:
         :return:
         """
         # TODO: fix input/output dimensions from projector and smooth
-        if affine == []:
+        if affine == None:
             # TODO: probably incomplete identity. for example, handle gradient?
-            self.apply_linear = lambda x: x
+            self.apply_linear = lambda x, grad=0: x
         else:
+            pass
             
 
     def set_smooth(self, smooth_func):
