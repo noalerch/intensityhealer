@@ -7,7 +7,7 @@ def square_norm(arr):
 
 # TODO: affine_func, projector_func are optional
 class ConicSolver:
-    def __init__(self, smooth_func, affine, projector_func, x0) -> None:
+    def __init__(self, smooth_func, affine_func, projector_func, x0) -> None:
         # instance attributes taken from tfocs_initialize.m
         self.max_iterations = float('inf')
         self.max_counts = float('inf')
@@ -87,7 +87,7 @@ class ConicSolver:
         # the way this works in TFOCS is that affineF
         # is a cell array of an arbitrary amount of
         # linear functions each paired with an offset
-        self.affine_handler(affine)
+        self.affine_handler(affine_func)
 
 
         #self.set_linear(linear_func, offset)
@@ -103,7 +103,7 @@ class ConicSolver:
         self.apply_smooth = None  # ?
         self.set_smooth(smooth_func)
 
-        self.apply_projector = None
+        # self.apply_projector = None
         self.set_projector(projector_func)
 
         # TODO: check function types
@@ -199,6 +199,8 @@ class ConicSolver:
                 step = 1 / (self.theta * L)
 
                 # np.array[C_z, z] = projector_function(z_old - step * g_y, step)
+                print(self.apply_projector)
+                # FIXME: apply_projector is None and cannot be called
                 iv.C_z, iv.z = self.apply_projector(z_old - step * iv.g_y, step, grad=1)
                 iv.A_z = self.apply_linear(iv.z, 1)
 
@@ -705,7 +707,7 @@ class ConicSolver:
         :return:
         """
         # TODO: fix input/output dimensions from projector and smooth
-        if affine == None:
+        if affine is None:
             # TODO: probably incomplete identity. for example, handle gradient?
             self.apply_linear = lambda x, grad=0: x
         else:
@@ -720,12 +722,21 @@ class ConicSolver:
         else:
             self.apply_smooth = smooth_func
 
-    def set_projector(self, projector_function):
+    def set_projector(self, projector_func):
+
+        if projector_func is None:
+            n_proj = 0 # when is this used?
+            projector_func = lambda x:
+
+
+
         if self.count_ops:
             self.apply_projector = lambda args, grad = 0: self.solver_apply([i for i in range(3, 4 + grad)],
-                                                                        projector_function, args)
-        else:
-            self.apply_projector = projector_function
+                                                                        projector_func, args)
+
+            self.apply_projector = projector_func
+
+    # projection onto entire space
 
     # TODO
     def solver_apply(self, ndxs, func, args):

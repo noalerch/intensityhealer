@@ -1,5 +1,6 @@
 import ConicSolver
 import numpy as np
+import ConicSolver as CS
 
 def TestQuadratic():
 	N = 100
@@ -14,7 +15,7 @@ def TestQuadratic():
 	grad_f = lambda x: c + D * x
 	smooth_func = lambda x, grad: wrapper_objective(f, grad_f, x, grad)
 
-	solver = ConicSolver.ConicSolver(smooth_func, None, None, x0)
+	solver = CS.ConicSolver(smooth_func, None, None, x0)
 
 	solver.restart = 100
 
