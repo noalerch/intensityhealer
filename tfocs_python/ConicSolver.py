@@ -1,5 +1,6 @@
 import math
 import numpy as np
+from ConicInternal import projection_Rn, proximity_stack
 
 
 def square_norm(arr):
@@ -179,8 +180,8 @@ class ConicSolver:
                         A_y = (1 - self.theta) * A_x_old + self.theta * A_z_old
 
                 iv.f_y = float('inf')
-                iv.g_Ay = np.array([]) # should be numpy array?
-                iv.g_y = np.array([]) # see above
+                iv.g_Ay = np.array([])
+                iv.g_y = np.array([])
 
                 if iv.g_y.size == 0:
                     if iv.g_Ay.size == 0:
@@ -713,7 +714,6 @@ class ConicSolver:
         else:
             pass
             
-
     def set_smooth(self, smooth_func):
         if self.count_ops:
             # TODO: first argument to solver_apply is strange
@@ -722,19 +722,24 @@ class ConicSolver:
         else:
             self.apply_smooth = smooth_func
 
-    def set_projector(self, projector_func):
+    def set_projector(self, projector):
+        if projector is None:
+            # if isempty(projectorF),
+            # n_proj = 0 # when is this used?
+            # projectorF = proj_Rn
+            # projector_func = lambda args:
 
-        if projector_func is None:
-            n_proj = 0 # when is this used?
-            projector_func = lambda x:
+            # based on my understanding of smooth_constant:
+            projector_func = projection_Rn
 
-
+        else:
+            projector_func = proximity_stack(projector)
 
         if self.count_ops:
             self.apply_projector = lambda args, grad = 0: self.solver_apply([i for i in range(3, 4 + grad)],
                                                                         projector_func, args)
 
-            self.apply_projector = projector_func
+        else: self.apply_projector = projector_func
 
     # projection onto entire space
 
