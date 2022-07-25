@@ -1,6 +1,6 @@
 import math
 import numpy as np
-from ConicInternal import projection_Rn, proximity_stack
+from ConicInternal import projection_Rn
 
 
 def square_norm(arr):
@@ -722,24 +722,25 @@ class ConicSolver:
         else:
             self.apply_smooth = smooth_func
 
-    def set_projector(self, projector):
-        if projector is None:
+    def set_projector(self, projector_func):
+        if projector_func is None:
             # if isempty(projectorF),
             # n_proj = 0 # when is this used?
             # projectorF = proj_Rn
             # projector_func = lambda args:
 
             # based on my understanding of smooth_constant:
-            projector_func = projection_Rn
+            projector = projection_Rn
 
         else:
-            projector_func = proximity_stack(projector)
+            #
+            projector = projector_func  # proximity_stack(projector)
 
         if self.count_ops:
             self.apply_projector = lambda args, grad = 0: self.solver_apply([i for i in range(3, 4 + grad)],
-                                                                        projector_func, args)
+                                                                        projector, args)
 
-        else: self.apply_projector = projector_func
+        else: self.apply_projector = projector
 
     # projection onto entire space
 

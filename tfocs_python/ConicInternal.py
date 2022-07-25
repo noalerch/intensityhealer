@@ -10,4 +10,7 @@ def projection_Rn(x, t=None, grad=0):
         else:
             return 0, x  # g := x
 
-# def proximity_stack()
+# On one hand, this function should maybe not be considered internal.
+# On the other, it seems to only ever be used for projection
+# def proximity_stack(prox_func):
+
