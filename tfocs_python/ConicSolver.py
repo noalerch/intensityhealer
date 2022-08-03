@@ -72,6 +72,8 @@ class ConicSolver:
         self.f_v = None  # i don't know
 
         self.iv = IterationVariables
+        # let x = x0 unconditionally for now
+        self.iv.x = x0
 
         self.restart_iter = 0
         self.warning_lipschitz = False  # 0 in matlab
@@ -619,7 +621,16 @@ class ConicSolver:
         xy = iv.x - iv.y
 
         # TODO: double check parenthesis
-        val = max(abs(xy.flatten()) - np.finfo(max(max(abs(xy.flatten())), max(abs(iv.x.flatten()), abs(iv.y.flatten())))))
+        print(iv.x)
+        print(iv.y)
+
+        print(xy.flatten())
+        print(xy)
+
+        # is flatten even necessary?
+        val = max(abs(xy.flatten()) -
+                    np.finfo(max(max(abs(xy.flatten())),
+                        max(abs(iv.x.flatten()), abs(iv.y.flatten())))))
         xy_sq = square_norm(val)
 
         if xy_sq == 0:
@@ -713,7 +724,7 @@ class ConicSolver:
             self.apply_linear = lambda x, grad=0: x
         else:
             pass
-            
+
     def set_smooth(self, smooth_func):
         if self.count_ops:
             # TODO: first argument to solver_apply is strange
@@ -808,6 +819,10 @@ class IterationVariables:
         self.g_z = self.g_x
         self.g_Az = self.g_Ax
         self.C_z = self.C_x
+
+    def init_x(self, x):
+        # tfocs uses way more checks
+        self.x = x
 
     def reset_yz(self):
         self.y = self.x
