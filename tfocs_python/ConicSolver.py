@@ -621,6 +621,7 @@ class ConicSolver:
         xy = iv.x - iv.y
 
         # TODO: double check parenthesis
+        print(iv)
         print(iv.x)
         print(iv.y)
 
