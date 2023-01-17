@@ -208,12 +208,13 @@ class ConicSolver:
 
                 # np.array[C_z, z] = projector_function(z_old - step * g_y, step)
                 print(self.apply_projector)
-                # FIXME: apply_projector is None and cannot be called
                 # ERROR: operands could not be broadcast together w shapes (100,) (0,)
                 print("z old: " + str(z_old))
                 print("step: " + str(step))
                 print("g_y: " + str(iv.g_y))
-                iv.C_z, iv.z = self.apply_projector(z_old - step * iv.g_y, step, grad=1)
+                print("step times gy: " + str(step * iv.g_y))
+                # FIXME: (step=1) * iv.g_y is [] while z_old has dimension 100
+                iv.C_z, iv.z = self.apply_projector(z_old - (step * iv.g_y), step, grad=1)
                 iv.A_z = self.apply_linear(iv.z, 1)
 
                 # new iteration
