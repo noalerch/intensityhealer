@@ -71,9 +71,11 @@ class ConicSolver:
 
         self.f_v = None  # i don't know
 
-        self.iv = IterationVariables
+        self.iv = IterationVariables()
         # let x = x0 unconditionally for now
         self.iv.x = x0
+        self.iv.z = x0
+        self.iv.y = x0
 
         self.restart_iter = 0
         self.warning_lipschitz = False  # 0 in matlab
@@ -96,6 +98,7 @@ class ConicSolver:
         #self.set_linear(linear_func, offset)
         #print(self.apply_linear)
 
+        # assume false
         if self.adjoint:
             pass  # TODO
 
@@ -123,13 +126,13 @@ class ConicSolver:
 
         assumes Auslender-Teboulle algorithm for now
         """
-        iv = IterationVariables()
+        # iv = IterationVariables()
 
-        self.auslender_teboulle(iv)
+        self.auslender_teboulle(self.iv)
 
         return self.output
 
-    def auslender_teboulle(self, iv):
+    def auslender_teboulle(self, iv): # , iv):
         """Auslender & Teboulle's method
         args:
             smooth_func: function for smooth
@@ -138,6 +141,8 @@ class ConicSolver:
         """
 
         self.output = SolverOutput('AT')
+        print("x value:" + str(iv.x))
+        print("z value:" + str(iv.z))
 
         # following taken from tfocs_initialize.m
         L = self.L_0
@@ -204,6 +209,10 @@ class ConicSolver:
                 # np.array[C_z, z] = projector_function(z_old - step * g_y, step)
                 print(self.apply_projector)
                 # FIXME: apply_projector is None and cannot be called
+                # ERROR: operands could not be broadcast together w shapes (100,) (0,)
+                print("z old: " + str(z_old))
+                print("step: " + str(step))
+                print("g_y: " + str(iv.g_y))
                 iv.C_z, iv.z = self.apply_projector(z_old - step * iv.g_y, step, grad=1)
                 iv.A_z = self.apply_linear(iv.z, 1)
 
@@ -618,19 +627,15 @@ class ConicSolver:
         if self.beta >= 1:
             return True, counter_Ax
 
+        # ERROR empty x,y
+
         xy = iv.x - iv.y
 
         # TODO: double check parenthesis
-        print(iv)
-        print(iv.x)
-        print(iv.y)
-
-        print(xy.flatten())
-        print(xy)
 
         # is flatten even necessary?
         val = max(abs(xy.flatten()) -
-                    np.finfo(max(max(abs(xy.flatten())),
+                    np.finfo(max(max(abs(xy.flatten())), # ERROR: empty sequence (xy null?)
                         max(abs(iv.x.flatten()), abs(iv.y.flatten())))))
         xy_sq = square_norm(val)
 
