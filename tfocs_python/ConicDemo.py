@@ -15,6 +15,8 @@ def TestQuadratic():
 	grad_f = lambda x: c + D * x
 	smooth_func = lambda x, grad: wrapper_objective(f, grad_f, x, grad)
 
+	# problem: x0 is only 0s
+	# affine and projector are both null
 	solver = CS.ConicSolver(smooth_func, None, None, x0)
 
 	solver.restart = 100
