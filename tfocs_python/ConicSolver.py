@@ -152,9 +152,6 @@ class ConicSolver:
         counter_Ay = 0
         counter_Ax = 0
 
-        # iteration values
-        # init iteration values (tfocs_initialize.m, lines 582-8)
-        # it is somewhat more comfortable if they are here rather than in __init__
 
         while True:
             x_old = iv.x
@@ -168,45 +165,42 @@ class ConicSolver:
             theta_old = self.theta
 
             # FIXME: theta is Inf
+            # TODO: remove above comment
             while True:
                 # acceleration
-                self.theta = self.advance_theta(theta_old)
+                self.theta = self.advance_theta(theta_old) # use L args?
 
                 # next iteration
                 if self.theta < 1:
                     iv.y = (1 - self.theta) * x_old + self.theta * z_old
 
+
                     if counter_Ay >= self.counter_reset:
                         # A_y = self.apply_linear(y, 1)
-                        iv.A_y = self.apply_linear(iv.y, 2)
+                        # iv.A_y = self.apply_linear(iv.y, 2) # why is this 2??
+                        iv.A_y = self.apply_linear(iv.y, 1)
 
-                        counter_Ay = 0
+                        counter_Ay = 0 # Reset counter
 
                     else:
                         counter_Ay += 1
-                        A_y = (1 - self.theta) * A_x_old + self.theta * A_z_old
+                        iv.A_y = (1 - self.theta) * A_x_old + self.theta * A_z_old
 
-                iv.f_y = float('inf')
-                iv.g_Ay = np.array([])
-                iv.g_y = np.array([])
+                    # UPDATE: moved into here
+                    iv.f_y = float('inf')
+                    iv.g_Ay = np.array([])
+                    iv.g_y = np.array([])
 
                 if iv.g_y.size == 0:
-                    if iv.g_Ay.size == 0:
+                    if iv.g_Ay.size == 0:  # this too
 
-                        # syntax makes no sense
-                        # np.array([f_y, g_Ay]) = self.apply_smooth(A_y)
-                        # (f_y, g_Ay) = self.apply_smooth(A_y)
-                        # assume for now that count_ops = 1.
-                        # in TFOCS,
-                        # apply_smooth = @(x)solver_apply(1: (1 + (nargoutt > 1)), smoothF, x );
-                        # we just perform the smooth function directly
+                        iv.f_y, iv.g_Ay = self.apply_smooth(iv.A_y, grad=1) # bruh it dont work
 
-                        iv.g_y = self.apply_linear(iv.g_Ay, 2)
+                    iv.g_y = self.apply_linear(iv.g_Ay, 2)
                         # g_y = self.apply_linear(g_Ay, 2)
 
-                step = 1 / (self.theta * L)
+                step: float = 1 / (self.theta * L)
 
-                # np.array[C_z, z] = projector_function(z_old - step * g_y, step)
                 print(self.apply_projector)
                 # ERROR: operands could not be broadcast together w shapes (100,) (0,)
                 print("z old: " + str(z_old))
@@ -214,7 +208,7 @@ class ConicSolver:
                 print("g_y: " + str(iv.g_y))
                 print("step times gy: " + str(step * iv.g_y))
                 # FIXME: (step=1) * iv.g_y is [] while z_old has dimension 100
-                iv.C_z, iv.z = self.apply_projector(z_old - (step * iv.g_y), step, grad=1)
+                iv.C_z, iv.z = self.apply_projector(z_old - (step * iv.g_y), step)
                 iv.A_z = self.apply_linear(iv.z, 1)
 
                 # new iteration
@@ -362,7 +356,6 @@ class ConicSolver:
                 status = "Step size tolerance reached (||dx||=0)"
         elif self.stop_criterion == 1 and norm_dx < self.tolerance * max(norm_x, 1):
             status = "Step size tolerance reached"
-
         elif self.stop_criterion == 2 and self.L * math.sqrt(xy_sq) < self.tolerance * max(norm_x, 1):
             status = "Step size tolerance reached"
         elif self.n_iter == self.max_iterations:
