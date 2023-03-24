@@ -106,7 +106,7 @@ class ConicSolver:
         # self.set_linear(linear_func)
 
         # TODO: should we support multiple smooth functions
-        self.apply_smooth = None  # ?
+        # self.apply_smooth = None  # ?
         self.set_smooth(smooth_func)
 
         # self.apply_projector = None
@@ -194,7 +194,10 @@ class ConicSolver:
                 if iv.g_y.size == 0:
                     if iv.g_Ay.size == 0:  # this too
 
-                        iv.f_y, iv.g_Ay = self.apply_smooth(iv.A_y, grad=1) # bruh it dont work
+                        # FIXME highly problematic
+                        print("A_y: ")
+                        print(iv.A_y)
+                        iv.f_y, iv.g_Ay = self.apply_smooth(iv.A_y, grad=1)
 
                     iv.g_y = self.apply_linear(iv.g_Ay, 2)
                         # g_y = self.apply_linear(g_Ay, 2)
@@ -392,10 +395,12 @@ class ConicSolver:
 
             if np.sum(comp_x) <= np.sum(comp_y) or self.stop_criteria_always_use_x:
 
-                if comp_x[2]:
+                if comp_x[1]:
                     iv.f_x, iv.g_Ax = self.apply_smooth(iv.A_x, grad=1)
-                elif comp_x[1]:
-                    iv.f_x = self.apply_smooth(iv.A_x, grad=1)
+                elif comp_x[0]:
+                    iv.f_x = self.apply_smooth(iv.A_x)
+                if comp_x[2]:
+                    iv.C_x = self.apply_projector(x)
 
                 current_priority = iv.x
                 if self.saddle:
@@ -405,9 +410,9 @@ class ConicSolver:
 
             else:
 
-                if comp_y[2]:
+                if comp_y[1]:
                     iv.f_y, iv.g_Ay = self.apply_smooth(iv.A_y, grad=1)
-                elif comp_y[1]:
+                elif comp_y[0]:
                     iv.f_y = self.apply_smooth(iv.A_y, grad=1)
 
                 current_priority = iv.y
