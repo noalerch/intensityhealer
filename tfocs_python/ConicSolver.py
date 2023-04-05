@@ -195,8 +195,8 @@ class ConicSolver:
                     if iv.g_Ay.size == 0:  # this too
 
                         # FIXME highly problematic
-                        print("A_y: ")
-                        print(iv.A_y)
+                        print("A_y: " + str(iv.A_y))
+                        # FIXME A_y is empty!
                         iv.f_y, iv.g_Ay = self.apply_smooth(iv.A_y, grad=1)
 
                     iv.g_y = self.apply_linear(iv.g_Ay, 2)
@@ -803,7 +803,12 @@ class IterationVariables:
 
         # x values
         self.x = np.array([])
-        self.A_x = np.array([])
+        self.A_x = np.array([]) # Non-ambiguous output dimensions: A_x = zeros
+        # n_smooth = numel(smoothF)
+        # assumtion 23-3-29: assume smooth function is singular, i.e. numel(smoothF) = 1
+        # output dimensions are a cell array
+        # cell(1, n_smooth) = (1, 1)
+
         self.f_x = float('inf')
         self.C_x = float('inf')
         self.g_x = np.array([])
@@ -811,7 +816,28 @@ class IterationVariables:
 
         # y values
         self.y = self.x
-        self.A_y = self.A_x
+        self.A_y = self.A_x # does not init correctly
+
+        ### INITIALIZING A_y ###
+        #
+        #
+        #
+        ###                  ###
+
+        #if isempty( A_x ),
+        #    if identity_linop || zero_x0 && square_linop, # identity_linop??
+        #        A_x = x;
+        #    elseif ~zero_x0 || size_ambig( otp_dims ),  % Jan 2012: todo: give size_ambig the 'offset' information
+        #        A_x = apply_linear( x, 1 ); % celldisp( size(A_x) )
+        #    else
+        #        A_x = tfocs_zeros( otp_dims );
+        #    end
+        #end
+        if np.empty(self.A_x):
+        #    if identity_linop || zero_x0 && square_linop, # identity_linop??
+            if
+
+
         self.f_y = self.f_x
         self.g_y = self.g_x
         self.g_Ay = self.g_Ax

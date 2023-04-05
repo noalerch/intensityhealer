@@ -18,7 +18,7 @@ def TestQuadratic():
 	# f = lambda x: c * x + x * D * x/2  # hopefully correct
 	f = lambda x: np.transpose(c) * x + np.transpose(x) * D * x/2  # hopefully correct
 	def fun(x):
-		print(x)
+		print("x: " + str(x))
 		print(x.shape)
 		print(c.shape)  # shape (1, 100)
 		print(D.shape)
