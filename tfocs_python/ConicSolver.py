@@ -88,6 +88,7 @@ class ConicSolver:
         self.output = None
 
         self.apply_linear = None
+        self.apply_projector = None
 
         # the way this works in TFOCS is that affineF
         # is a cell array of an arbitrary amount of
@@ -400,7 +401,7 @@ class ConicSolver:
                 elif comp_x[0]:
                     iv.f_x = self.apply_smooth(iv.A_x)
                 if comp_x[2]:
-                    iv.C_x = self.apply_projector(x)
+                    iv.C_x = self.apply_projector(iv.x)
 
                 current_priority = iv.x
                 if self.saddle:
@@ -807,7 +808,6 @@ class IterationVariables:
         # n_smooth = numel(smoothF)
         # assumtion 23-3-29: assume smooth function is singular, i.e. numel(smoothF) = 1
         # output dimensions are a cell array
-        # cell(1, n_smooth) = (1, 1)
 
         self.f_x = float('inf')
         self.C_x = float('inf')
@@ -816,13 +816,20 @@ class IterationVariables:
 
         # y values
         self.y = self.x
-        self.A_y = self.A_x # does not init correctly
+        self.A_y = self.A_x  # does not init correctly
 
         ### INITIALIZING A_y ###
         #
         #
         #
         ###                  ###
+
+        ### size_ambig:
+        # sz :: double => if sz empty
+        # sz :: cell => false if valid function handle
+        # sz :: cell => true if empty
+            # for each element in sz, if at least one contained element ambiguous => true
+        # sz :: any other type => true
 
         #if isempty( A_x ),
         #    if identity_linop || zero_x0 && square_linop, # identity_linop??
@@ -833,9 +840,9 @@ class IterationVariables:
         #        A_x = tfocs_zeros( otp_dims );
         #    end
         #end
-        if np.empty(self.A_x):
+        if np.empty(self.A_x): # i. e. ambiguous size in output dimensions
         #    if identity_linop || zero_x0 && square_linop, # identity_linop??
-            if
+            self.A_x = np.zeros((256, 256))
 
 
         self.f_y = self.f_x
