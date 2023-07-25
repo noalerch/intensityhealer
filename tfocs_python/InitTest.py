@@ -17,7 +17,7 @@ class InitTest(unittest.TestCase):
 
         A_y = solver.iv.A_y
         print(A_y)
-        A_y_application = solver.apply_smooth(A_y, grad=0) # non existent
+        A_y_application = solver.apply_smooth(A_y, grad=0)  # non existent
         A_y_application_grad = solver.apply_smooth(A_y, grad=1)
 
         self.assertIsNotNone(A_y_application)  # add assertion here
@@ -25,11 +25,11 @@ class InitTest(unittest.TestCase):
 
     def test_init_linear(self):
         solver = cs.ConicSolver(self.smooth, self.linear, self.projector, self.x0)
-        #g_Ay = solver.iv.g_Ay
-        #print(g_Ay)
-        #g_Ay_application = solver.apply_linear(g_Ay, 2)
+        # g_Ay = solver.iv.g_Ay
+        # print(g_Ay)
+        # g_Ay_application = solver.apply_linear(g_Ay, 2)
         self.assertIsNotNone(solver.apply_linear)
-        #self.assertIsNotNone(g_Ay_application)  # add assertion here
+        # self.assertIsNotNone(g_Ay_application)  # add assertion here
 
     def test_init_projector(self):
         solver = cs.ConicSolver(self.smooth, self.linear, self.projector, self.x0)
@@ -43,7 +43,6 @@ class InitTest(unittest.TestCase):
     # ----- Functions for global use in solver tests ----- #
     def smooth(self, x, grad=0):
         def fun(y):
-            # error: y is empty
             ret = np.transpose(self.c) * y + np.transpose(y) * self.D * y / 2  # hopefully orrect
             return ret
 
@@ -54,9 +53,41 @@ class InitTest(unittest.TestCase):
             if gradient:
                 return f(y), g(y)
             else:
-                return f(y), None  # remove None?
+                return f(y)
 
-        return wrapper_objective(fun, grad_fun, x, grad)
+        def smooth_stack(functions, x_smooth, gradient=0):
+            n = len(functions)
+            #if n == 1:
+            #    functions = functions[0]
+
+            if n == 0:
+                raise Exception("smooth zero not implemented yet!")
+            elif callable(functions):
+                return functions
+            else: # smooth_stack_impl
+                def smooth_stack_impl(smth, ecks, grd=0):
+                    if grd:
+                        f = [i for i in range(n)]
+                        g = [0 for _ in smth] # prob wrong
+                        for k in range(n):
+                            f[k], g[k] = smth[k](ecks[k])
+                        f = sum(f)
+                        return f, g
+                    else:
+                        f = 0
+                        for k in range(n):
+                            f = f + smth[k](ecks[k])
+                        return f
+                return smooth_stack_impl(functions, x_smooth, gradient)  # (functions, x_smooth, gradient)
+
+        # TODO: proper smooth stack usage
+
+        # in tfocs, this stacks wrapper objective and smooth linear? which seems to result in dot?
+        wrapper = lambda w: wrapper_objective(fun, grad_fun, w, grad)
+        stacked = smooth_stack([wrapper], x, grad)
+        return stacked
+
+
 
     # offset correct?
     def linear(self, x, mode):  # { 1 ; 1 } however that should be represented
@@ -65,10 +96,7 @@ class InitTest(unittest.TestCase):
         print(x)
         assert len(x) > 0
 
-        def linop_stack_col(linearF, N, dims, x_linop, mode_linop):
-            # this code is godawful and is basically a 1:1 rewriting from tfocs
-            # in reality, so little of this is relevant for our test
-            # in a whole new language
+        def linop_stack_col(linear_col, N, dims, x_linop, mode_linop):
             y = 0
             if mode_linop == 0:
                 print("mode 0")
@@ -76,10 +104,16 @@ class InitTest(unittest.TestCase):
             elif mode_linop == 1:  # tuple mode?
                 print("mode 1")
                 # y = (np.array(self.N), np.array(self.N))
-                y = (x_linop, x_linop)
-                # for j in range(N):
+                # y = (x_linop, x_linop)
+                yl = [None, None]
+                for j in range(2):
+                    lf = linear_col[j]
+                    if lf is not None:
+                        yl[j] = lf(x_linop, 1)
+                    else:
+                        yl[j] = np.zeros_like(x_linop)
+                y = (yl[0], yl[1])
 
-                # lF = linearF[j]
                 # lf = linop_identity
                 # if lf is not None:
                 #    y[j] = lf(x_linop, 1)
@@ -108,10 +142,42 @@ class InitTest(unittest.TestCase):
         # m = 2
         # inp_dims = []
         # otp_dims = []
+
+        # linearF = (linop_identity, 1)
+
         def linop_identity(x_linop, _=1):
             return x_linop
 
-        linearF = (linop_identity, 1)
+        def linop_dot_forward(sz, A, x_dot, mode_dot):
+            if mode_dot == 0:
+                return sz
+            elif mode_dot == 1:
+                # tfocs_dot in original
+                # which is actually an optimized implementation
+                # with support for complex numbers
+                # assume np.dot behaves the same for our purposes
+                # FIXME: it probably doesn't lol
+                if np.isscalar(A) and not np.isscalar(x_dot):
+                    if A == 0:
+                        return 0
+                    else:
+                        return A * np.sum(x_dot)
+                elif not np.isscalar(A) and not np.isscalar(x_dot):
+                    return np.dot(A, x_dot)
+                else: raise Exception("not implemented")
+            elif mode_dot == 2:
+                if not np.isreal(x):
+                    raise Exception("Unexpected complex")
+                return A * x_dot
+            else:
+                raise Exception("Invalid mode for linop")
+
+
+        # ignore lambda for dot?
+        sz = ([1, 1], [1, 1])
+        a = 1
+        linop_dot = lambda x_d, mode_d: linop_dot_forward(sz, a, x_d, mode_d)
+        linearF = (linop_identity, linop_dot)
 
         return linop_stack_col(linearF, 2, ([], []), x, mode)
 
