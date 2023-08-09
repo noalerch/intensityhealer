@@ -105,8 +105,9 @@ class ConicSolver:
         else:
             self.iv.A_x = np.zeros((self.output_dims, self.output_dims))
 
-        self.iv.f_x, self.iv.g_Ax = self.apply_smooth(self.iv.A_x, grad=1)
-        if np.isinf(self.iv.f_x):
+        # circa line 521 in tfocs_init
+        self.iv.f_x, self.iv.g_Ax = self.apply_smooth(self.iv.A_x, grad=1)  # does not enter dot product?
+        if np.isinf(self.iv.f_x):  # FIXME: f_x should be 0, not 256x256 zeros
             raise Exception("The initial point lies outside of the domain of the smooth function.")
 
         ######################### ???##########
@@ -200,49 +201,29 @@ class ConicSolver:
                     iv.g_y = np.array([])
 
                 if iv.g_y.size == 0:
-                    print("## g_y size empty ##")
                     # initialize g_Ay
                     if iv.g_Ay.size == 0:
                         iv.f_y, iv.g_Ay = self.apply_smooth(iv.A_y, grad=1)
 
-                    # it is this application where it gets weird
-                    # FIXME: g_Ay should be a double array type thing
-                    print("g_Ay: ", iv.g_Ay)
                     iv.g_y = self.apply_linear(iv.g_Ay, 2)
 
                 step: float = 1 / (self.theta * L)
 
-                # FIXME: g_y is 256x256 which messes everything up
                 print(z_old - step * iv.g_y)
                 #
                 # initially: C_z = 0, z = 100x1 zeros in tfocs
                 # for us, C_z is inf!
                 iv.C_z, iv.z = self.apply_projector(z_old - step * iv.g_y, step)
-                print("z post modification ## ## : ", iv.z)
-                print("shape of z ", iv.z.shape)
-                # FIXME: once again the projector is wrong
-                # in that z is returned as a 256x256 matrix
-
-                # FIXME: check this
-                # TODO: check initialization of z
                 iv.A_z = self.apply_linear(iv.z, 1)
 
                 # new iteration
                 if self.theta == 1:
-                    print("##### x value pre theta = 1: ", iv.x)
-                    # FIXME FIXME FIXME FIXME
-                    print("##### shape: ", iv.x.shape)
                     iv.x = iv.z
-                    print("##### x value after theta = 1: ", iv.x)
-                    print("##### shape: ", iv.x.shape)
-
                     iv.A_x = iv.A_z
                     iv.C_x = iv.C_z
 
                 else:
                     iv.x = (1 - self.theta) * x_old + self.theta * iv.z
-                    print("##### x value after theta != 1: ", iv.x)
-                    print("##### shape: ", iv.x.shape)
 
                     if counter_Ax >= self.counter_reset:
                         counter_Ax = 0
@@ -269,6 +250,10 @@ class ConicSolver:
                 break
 
         self.cleanup(v_is_x, v_is_y, f_vy, self.iv, status)
+
+    # TODO see lines ca 327 in tfocs_initialize.m
+    def handle_affine_offset(self):
+        pass
 
     def cleanup(self, v_is_x, v_is_y, f_vy, iv, status):
         # TODO: cur_dual (probably not needed for COACS)
