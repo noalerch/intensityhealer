@@ -41,6 +41,7 @@ class InitTest(unittest.TestCase):
 
     # ---------------------------------------------------- #
     # ----- Functions for global use in solver tests ----- #
+    # TODO (possible): add most of this functionality to the solver itself
     def smooth(self, x, grad=0):
         def fun(y):
             ret = np.transpose(self.c) * y + np.transpose(y) * self.D * y / 2  # hopefully orrect
@@ -81,10 +82,14 @@ class InitTest(unittest.TestCase):
                 return smooth_stack_impl(functions, x_smooth, gradient)  # (functions, x_smooth, gradient)
 
         # TODO: proper smooth stack usage
+        def smooth_linear(c, d):
+
 
         # in tfocs, this stacks wrapper objective and smooth linear? which seems to result in dot?
         wrapper = lambda w: wrapper_objective(fun, grad_fun, w, grad)
-        stacked = smooth_stack([wrapper], x, grad)
+        smooth_linear = None
+        funs = (wrapper, smooth_linear)
+        stacked = smooth_stack(funs, x, grad)
         return stacked
 
 
@@ -161,7 +166,8 @@ class InitTest(unittest.TestCase):
                     if A == 0:
                         return 0
                     else:
-                        return A * np.sum(x_dot)
+                        x_sum = A * np.sum(x_dot)
+                        return x_sum
                 elif not np.isscalar(A) and not np.isscalar(x_dot):
                     return np.dot(A, x_dot)
                 else: raise Exception("not implemented")
