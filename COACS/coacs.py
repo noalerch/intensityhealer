@@ -3,7 +3,7 @@
 # Based on code by Carl Nettelblad at https://github.com/cnettel/jackdaw
 # As well as the TFOCS library for MATLAB: http://cvxr.com/tfocs/
 # Bachelor's degree project in Computer Science at Uppsala University
-# 2022
+# 2023
 
 import numpy as np
 
