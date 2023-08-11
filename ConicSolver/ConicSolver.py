@@ -46,29 +46,12 @@ class ConicSolver:
         # iterations start at 0
         self.n_iter = 0
 
-        # TODO: implement out in a smart way
         self.out = np.array([])
         self.test = []
-
-        # TODO: description
-
-        # TODO: function types assertions?
-
-        # TODO: L0_default, alpha default etc
-        # def_fields?
-
-        # TODO: some more stuff
         self.output_dims = 256
-
-        # TODO: max min
-
-        # TODO: affine
-
-        # TODO: init tfocs_count___ variable here (found in self.count)
         self.L = self.L_0
         self.theta = float('inf')
         self.f_v_old = float('inf')
-
         self.f_v = None  # i don't know
         # the way this works in TFOCS is that affineF
         # is a cell array of an arbitrary amount of
@@ -79,15 +62,10 @@ class ConicSolver:
         if self.adjoint:
             print("adjoint not implemented!")
 
-        # TODO: should we support multiple smooth functions
-        # self.apply_smooth = None  # ?
         self.set_smooth(smooth_func)
-
-        # self.apply_projector = None
         self.set_projector(projector_func)
 
         self.iv = IterationVariables()
-        # let x = x0 unconditionally for now
         self.iv.output_dims = 256  # default value = 256
         self.iv.init_x(x0)
         self.iv.z = x0  # suspicious
@@ -124,14 +102,6 @@ class ConicSolver:
         self.output = None
 
         self.cs = None
-        # self.apply_projector = None
-
-        # TODO: check function types
-
-        # TODO: pass through projector
-
-        # TODO: get linear function from affine
-        #       linop_stack
 
     def solve(self):
         """
