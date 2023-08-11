@@ -6,10 +6,13 @@
 # 2023
 
 import numpy as np
+import coacsutils as cu
+import ConicSolver as cs
+
 
 class Healer:
-    def __init__(self, pattern, support, bkg, init_guess, num_rounds, qbarrier,
-            nzpenalty, iters, tolerance, nowindow):
+    def __init__(self, pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
+                 nzpenalty, iters, tolerance, nowindow=None):
         """The main COACS function
         pattern : ??
             pattern to phase
@@ -36,10 +39,27 @@ class Healer:
 
         # TODO: if nargin < 11
 
+        if nowindow is None:
+            nowindow = []
+
         iter_factor = 1.1
 
         # handle scalars
         nzpenalty = np.multiply(np.ones(1, num_rounds), nzpenalty)
         qbarrier = np.multiply(np.ones(1, num_rounds), qbarrier)
 
-        # TODO: getdims
+        dims, side2, fullsize, pshape, cshape = cu.get_dims(pattern)
+
+        original_pattern = pattern
+        pattern = pattern.reshape(fullsize, 1)
+
+        solver = cs.ConicSolver
+        solver.alg = alg
+        solver.restart = 5e5
+        solver.count_ops = True
+        solver.print_stop_criterion = True
+        solver.print_every = 2500
+        # no regress restart option
+        solver.restart = -10000000  # ?
+
+
