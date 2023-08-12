@@ -62,4 +62,17 @@ class Healer:
         # no regress restart option
         solver.restart = -10000000  # ?
 
+        solver.autoRestart = 'fun' # ? double check this
+
+        mask = np.hstack((np.reshape(support, pshape), np.zeros(np.reshape(support, pshape).shape)))
+        mask = np.reshape(mask, (fullsize * 2, 1))
+
+        # purely ie zero mask in imaginary space
+        our_linp_flat = jackdaw_linop(original_pattern, 1)
+        # no windowing used within linop for now
+        our_linp = our_linp_flat
+
+
+        jackdaw_linop
+
 
