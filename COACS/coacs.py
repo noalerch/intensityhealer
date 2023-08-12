@@ -73,6 +73,52 @@ class Healer:
         our_linp = our_linp_flat
 
 
-        jackdaw_linop
+def jackdaw_linop(pattern, filter):
+    dims, side2, fullsize, pshape, cshape = cu.get_dims(pattern)
+
+    if dims == 3:
+        r = np.fftshift(np.pi / 2 + (np.arange(0.25, side2 - 0.75) * np.pi / side2))
+        Xs, Ys, Zs = np.meshgrid(r, r, r)
+        shifter = np.exp(1j * (Xs + Ys + Zs))
+
+        r = np.linspace(0, -np.pi + np.pi / side2, side2)
+        Xs, Ys, Zs = np.meshgrid(r, r, r)
+        unshifter = np.exp(1j * (Xs + Ys + Zs))
+    else:
+        shifter = 1
+        unshifter = 1
+
+    linop = lambda x, mode: linop_helper(x, mode, dims, side2, fullsize, pshape, cshape, filter, unshifter, shifter)
+    return linop
+
+
+def linop_helper(x, mode, dims, side, fullsize, pshape, cshape, filter, unshifter, shifter):
+    y = None
+    if mode == 0:
+        y = np.array([fullsize, 2 * fullsize])
+    elif mode == 1:
+        x = x.reshape(cshape)
+        if dims == 3:
+            x = np.fft.fftshift(x[0:side, 0:side, 0:side] + 1j * x[0:side, side:side * 2, 0:side])
+        else:
+            x = np.fft.fftshift(x[0:side, 0:side] + 1j * x[0:side, side:side * 2])
+
+        x2 = x.copy() * np.conj(shifter)
+        x = np.fft.fftn(x2) * np.conj(shifter)
+
+        y = (side ** (-dims / 2)) * np.real(x.flatten()) * filter.flatten()
+    elif mode == 2:
+        x2 = np.zeros(pshape, dtype=complex)
+        x2[:] = np.real(x) * filter
+        x2 = x2 * shifter
+        x2 = np.fft.ifftn(x2)
+        x2 = x2 * shifter
+        x2 = np.fft.ifftshift(x2)
+        y = np.concatenate([np.real(side ** (dims / 2) * x2), np.imag(side ** (dims / 2) * x2)], axis=0)
+
+    assert y is not None
+    return y
+
+
 
 
