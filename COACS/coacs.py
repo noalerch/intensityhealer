@@ -7,6 +7,9 @@
 
 import numpy as np
 import coacsutils as cu
+import sys
+
+sys.path.append('ConicSolver')
 import ConicSolver as cs
 
 
@@ -42,15 +45,22 @@ class Healer:
         if nowindow is None:
             nowindow = []
 
+        if len(nowindow) == 0:
+            nowindow = False
+
         iter_factor = 1.1
 
         # handle scalars
-        nzpenalty = np.multiply(np.ones(1, num_rounds), nzpenalty)
-        qbarrier = np.multiply(np.ones(1, num_rounds), qbarrier)
+        # 1x69 in matlab, is this correct?
+        # resulting from num_rounds
+        # TODO: check this, possible error in matlab
+        # nzpenalty = np.ones(num_rounds) * nzpenalty  # redundant if nzpenalty is 1D
+        qbarrier = np.ones(num_rounds) * qbarrier
 
         dims, side2, fullsize, pshape, cshape = cu.get_dims(pattern)
 
-        original_pattern = pattern
+        original_pattern = pattern.copy()
+        # TODO: check dimensions of pattern
         pattern = pattern.reshape(fullsize, 1)
 
         solver = cs.ConicSolver
@@ -65,6 +75,7 @@ class Healer:
         solver.autoRestart = 'fun' # ? double check this
 
         mask = np.hstack((np.reshape(support, pshape), np.zeros(np.reshape(support, pshape).shape)))
+        # TODO: check dimensions of mask
         mask = np.reshape(mask, (fullsize * 2, 1))
 
         # purely ie zero mask in imaginary space
@@ -72,7 +83,50 @@ class Healer:
         # no windowing used within linop for now
         our_linp = our_linp_flat
 
+        global factor
 
+        # empty guess?
+        if not init_guess:
+            init_guess = pattern.flatten()
+            # replace neg values with 0
+            init_guess[init_guess < 0] = 0
+
+        x = np.reshape(init_guess, (1, fullsize))
+        # need to copy to not overwrite later
+        xprev = x.copy()
+        y = x.copy()
+        jval = 0
+
+        filter = np.ones((fullsize, 1))
+        rfilter = 1.0 / filter
+
+        # i is outer round
+        for i in range(num_rounds):
+            # base_penalty = None
+            if nowindow:
+                factor = np.ones((65536, 1))
+                base_penalty = 1 - mask
+            else:
+                factor, base_penalty = cu.create_windows(original_pattern, mask, qbarrier[i], filter)
+
+            y = y * factor
+            x = x * factor
+
+            penalty = base_penalty * nzpenalty[i]
+
+            # acceleration scheme baseed on assumption of linear steps
+            # in response to decreasing qbarrier
+            if i > 0 and qbarrier[i] != qbarrier[i - 1]:
+                xprev = xprev * factor
+                if jval > 0:
+                    diffx = x + (x - xprev) * (qbarrier[i] / qbarrier[i - 1])
+                    smoothop = cu.diffpoisson(factor, pattern.flatten(), diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
+
+
+
+
+
+# TODO: test this
 def jackdaw_linop(pattern, filter):
     dims, side2, fullsize, pshape, cshape = cu.get_dims(pattern)
 
