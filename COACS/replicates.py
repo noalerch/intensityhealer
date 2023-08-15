@@ -28,7 +28,7 @@ if 'nowindow' not in locals() and 'nowindow' not in globals():
 
 # prepare settings for the different continuation levels
 for i in range(rounds):
-    val = 2 ** (2 - i)
+    val = 2 ** (3 - i)
     qbarrier.append(val)
     nzpval = 1e4 / val
     nzpenalty.append(nzpval)
