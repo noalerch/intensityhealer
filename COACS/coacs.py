@@ -83,7 +83,7 @@ class Healer:
         # no windowing used within linop for now
         our_linp = our_linp_flat
 
-        global factor
+        # global factor
 
         # empty guess?
         if not init_guess:
@@ -93,7 +93,7 @@ class Healer:
 
         x = np.reshape(init_guess, (1, fullsize))
         # need to copy to not overwrite later
-        xprev = x.copy()
+        x_prev = x.copy()
         y = x.copy()
         jval = 0
 
@@ -117,11 +117,37 @@ class Healer:
             # acceleration scheme baseed on assumption of linear steps
             # in response to decreasing qbarrier
             if i > 0 and qbarrier[i] != qbarrier[i - 1]:
-                xprev = xprev * factor
+                x_prev = x_prev * factor
                 if jval > 0:
-                    diffx = x + (x - xprev) * (qbarrier[i] / qbarrier[i - 1])
+                    diffx = x + (x - x_prev) * (qbarrier[i] / qbarrier[i - 1])
                     smoothop = cu.diffpoisson(factor, pattern.flatten(), diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
 
+            x_prev_inner = y.copy()
+            j_val_inner = -1  # ? might depend on what this is used for
+            solver.maxIter = np.ceil(iters[i] / iter_factor)
+
+            # inner acceleration scheme
+            # based on overall difference to previous pre-acceleration start
+            while True:
+                if j_val_inner >= 0:
+                    diffx = y.copy()
+
+                    smoothop = cu.diffpoisson(factor, pattern.flatten(), diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
+
+                    proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
+
+                    newstep = our_linp(x - x_prev, 2)
+                    negstep = -newstep
+                    negstep[penalty == 0] = 0
+                    newstep[penalty > 0] = 0
+                    negstep = our_linp(negstep, 1)
+                    newstep = our_linp(newstep, 1)
+                    # WHAT IS z????
+
+                    ############ ignore this for now
+                    y = x + half_bounded_line_search()
+
+                    x = y + half_bounded_line_search() # ooga booga
 
 
 
@@ -172,6 +198,53 @@ def linop_helper(x, mode, dims, side, fullsize, pshape, cshape, filter, unshifte
 
     assert y is not None
     return y
+
+def half_bounded_line_search(y, f):
+    factor = 1.0  # do check if factor should actually be global
+    last_val = f(y * factor)
+    min_overall = 0.0
+    min_val = f(min_overall)
+
+    while True:
+        factor = factor * 2
+        new_val = f(y * factor)
+        if new_val >= last_val:
+            break
+        if new_val < min_val:
+            min_overall = factor
+            min_val = new_val
+
+    lo = 0.0
+    hi = factor
+
+    for i in range(100):
+        diff = hi - lo
+        poses = (lo + diff / 3, lo + 2 * diff / 3)
+        real_vals = (f(y * poses[0]), f(y * poses[1]))
+        # a, b = min(real_vals)
+        idx = np.argmin(real_vals)
+
+        if real_vals[1] == real_vals[0]:
+            break
+
+        if idx == 0:
+            hi = poses[1]
+        elif idx == 1:
+            lo = poses[0]
+
+        if real_vals[idx] < min_val:
+            min_overall = poses[idx]
+            min_val = real_vals[idx]
+
+        if min_overall < lo:
+            lo = min_overall
+            break
+
+        hi = max(min_overall, hi)
+        last_val = real_vals[idx]  # redundant?
+    x = y * lo
+
+    return x
 
 
 
