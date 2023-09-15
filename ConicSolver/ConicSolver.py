@@ -4,7 +4,10 @@ import numpy as np
 
 # TODO: affine_func, projector_func are optional
 class ConicSolver:
-    def __init__(self, smooth_func, affine_func, projector_func, x0) -> None:
+    def __init__(self): #, smooth_func, affine_func, projector_func, x0) -> None:
+        """ConicSolver constructor
+        """
+
         # instance attributes taken from tfocs_initialize.m
         self.apply_linear = None
         self.apply_smooth = None
@@ -42,6 +45,8 @@ class ConicSolver:
         self.print_restart = True
         self.debug = False
 
+        self.iv = None
+
         # iterations start at 0
         self.n_iter = 0
 
@@ -55,40 +60,16 @@ class ConicSolver:
         # the way this works in TFOCS is that affineF
         # is a cell array of an arbitrary amount of
         # linear functions each paired with an offset
-        self.set_linear(affine_func, 0)
 
         # assume false
         if self.adjoint:
             print("adjoint not implemented!")
 
-        self.set_smooth(smooth_func)
-        self.set_projector(projector_func)
 
-        self.iv = IterationVariables()
-        self.iv.output_dims = 256  # default value = 256
-        self.iv.init_x(x0)
-        self.iv.z = x0  # suspicious
-        self.iv.y = x0  # suspicious
+        # self.iv = IterationVariables()
 
-        if np.isinf(self.iv.C_x):
-            self.iv.C_x = self.apply_projector(self.iv.x)
-            if np.isinf(self.iv.C_x):
-                self.iv.C_x, self.iv.x = self.apply_projector(self.iv.x, 1)
-
-        size_ambig = True
-        if size_ambig:
-            # FIXME: snd should be 0 rather than ([1, 1], [1, 1])
-            self.iv.A_x = self.apply_linear(self.iv.x, 1)
-        else:
-            self.iv.A_x = np.zeros((self.output_dims, self.output_dims))
-
-        # circa line 521 in tfocs_init
-        self.iv.f_x, self.iv.g_Ax = self.apply_smooth(self.iv.A_x, grad=1)  # does not enter dot product?
-        if np.isinf(self.iv.f_x):  # FIXME: f_x should be 0, not 256x256 zeros
-            raise Exception("The initial point lies outside of the domain of the smooth function.")
 
         ######################### ???##########
-        self.iv.init_iterate_values()
 
         self.restart_iter = 0
         self.warning_lipschitz = False  # 0 in matlab
@@ -102,18 +83,47 @@ class ConicSolver:
 
         self.cs = None
 
-    def solve(self):
+    def solve(self, smooth_func, affine_func, projector_func, x0, affine_offset):
         """
 
         assumes Auslender-Teboulle algorithm for now
         """
-        # iv = IterationVariables()
 
+        # we set the functions here to allow for greater flexibility
+        # in choosing options prior to solving
+        self.set_smooth(smooth_func)
+        self.set_linear(affine_func, affine_offset)
+        self.set_projector(projector_func)
+
+        # iv = IterationVariables()
+        self.iv = IterationVariables()
+        self.iv.output_dims = 256  # default value = 256
+        self.iv.init_x(x0)
+        self.iv.z = x0  # suspicious
+        self.iv.y = x0  # suspicious
+
+        if np.isinf(self.iv.C_x):
+            self.iv.C_x = self.apply_projector(self.iv.x)
+            if np.isinf(self.iv.C_x):
+                self.iv.C_x, self.iv.x = self.apply_projector(self.iv.x, 1)
+
+        size_ambig = True
+        if size_ambig:
+            self.iv.A_x = self.apply_linear(self.iv.x, 1)
+        else:
+            self.iv.A_x = np.zeros((self.output_dims, self.output_dims))
+
+        # circa line 521 in tfocs_init
+        self.iv.f_x, self.iv.g_Ax = self.apply_smooth(self.iv.A_x, grad=1)  # does not enter dot product?
+        if np.isinf(self.iv.f_x):
+            raise Exception("The initial point lies outside of the domain of the smooth function.")
+
+        # call AT function to optimize
         self.auslender_teboulle(self.iv)
 
         return self.output
 
-    def auslender_teboulle(self, iv):  # , iv):
+    def auslender_teboulle(self, iv):  # we pass iv as an argument to avoid using self.iv
         """Auslender & Teboulle's method
         args:
             smooth_func: function for smooth
@@ -219,10 +229,6 @@ class ConicSolver:
                 break
 
         self.cleanup(v_is_x, v_is_y, f_vy, self.iv, status)
-
-    # TODO see lines ca 327 in tfocs_initialize.m
-    def handle_affine_offset(self):
-        pass
 
     def cleanup(self, v_is_x, v_is_y, f_vy, iv, status):
         # TODO: cur_dual (probably not needed for COACS)
@@ -700,9 +706,11 @@ class ConicSolver:
         if self.count_ops:
             # hack to allow multiple return values
             # pass grad = 1 to return gradient as well
-            self.apply_linear = lambda x, mode, grad=0: self.solver_apply(2, linear_func, [x, mode, grad])
+            # todo: very complicated
+            self.apply_linear = lambda x, mode, grad=0: self.solver_apply(2, linear_func, [x + offset, mode, grad])
         else:
-            self.apply_linear = linear_func
+            self.apply_linear = lambda x: linear_func(x + offset)
+
 
     def set_smooth(self, smooth_func):
         if self.count_ops:
