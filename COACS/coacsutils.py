@@ -94,9 +94,11 @@ def create_windows(pattern, mask, qbarrier, filter):
     filter = np.fft.fftshift(filter)
 
     factor = create_filter(filter, pshape, side2, fullsize, dims)
-    factor = factor * factor + 0 * 1e-8
+    factor = factor * factor
 
     # factor = factor.flatten() # ? redundant
+    # NOTE: the matlab version required to add machine epsilon to 0-values in factor
+    # this is not necessary in numpy (hopefully)
 
     return factor, base_penalty
 
@@ -112,6 +114,41 @@ def diffpoisson(scale, y, basey, minval, absrefpoint, filter, qbarrier):
     f = lambda *args: diff_func(scale, rscale, mask, y, baseyscaled, minval, absrefpointscaled, filterrsq, qbarrier,
                                 *args)
     return f
+
+def create_proxop(diffx, penalty, ourlinp):
+    diffxt = ourlinp(diffx, 2)
+    level = -diffxt
+    level[penalty == 0 and diffxt >= 0] = 0
+    xlevel = ourlinp(level, 1)
+    proxop = zero_tolerant_quad(penalty, -diffxt - level, diffxt)
+    return proxop, diffxt, level, xlevel
+
+def zero_tolerant_quad(p, p2, p3):
+    #
+    p = p.flatten() # is this necessary?
+    op = lambda *args: smooth_quad_diag_matrix(p, p2, p3, *args)
+
+    def smooth_quad_diag_matrix(q, q2, q3, origx, t=None):
+        pm = max(q)
+        x = origx.copy() - q2
+        q4 = q.copy()
+        q4[q3 < 0] = pm
+        q[x < 0] = pm
+        mask = p == 0
+        q2[mask] = 0
+
+        if t is None:
+            g = q * x
+            v = 0.5 * np.sum(g * x - q4 * q3 * q3)
+        else:
+            # prevx = x.copy()
+            x = (1.0 / (t * q + 1)) * x
+            g = x + q2
+            v = 0.5 * np.sum(q * x * x - q4 * q3 * q3)
+
+        return v, g
+
+    return op
 
 def diff_func(scale, rscale, mask, y, baseyscaled, minval, absrefpointscaled, filterrsq, qbarrier, x):
     x = x * scale
