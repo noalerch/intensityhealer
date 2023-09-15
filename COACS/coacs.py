@@ -63,7 +63,7 @@ class Healer:
         # TODO: check dimensions of pattern
         pattern = pattern.reshape(fullsize, 1)
 
-        solver = cs.ConicSolver
+        solver = cs.ConicSolver()
         solver.alg = alg
         solver.restart = 5e5
         solver.count_ops = True
@@ -114,7 +114,7 @@ class Healer:
 
             penalty = base_penalty * nzpenalty[i]
 
-            # acceleration scheme baseed on assumption of linear steps
+            # acceleration scheme based on assumption of linear steps
             # in response to decreasing qbarrier
             if i > 0 and qbarrier[i] != qbarrier[i - 1]:
                 x_prev = x_prev * factor
@@ -148,7 +148,32 @@ class Healer:
                     y = x + half_bounded_line_search()
 
                     x = y + half_bounded_line_search() # ooga booga
+                else:
+                    x = y.copy()
 
+                x_prev_inner = y.copy()
+                j_val_inner = j_val_inner + 1
+                solver.max_iterations = np.ceil(solver.max_iterations * iter_factor)
+                solver.tolerance = tolerance[i]
+                solver.L_0 = 2 / qbarrier[i]
+                solver.L_exact = solver.L_0 * (96*96*96)**0.5
+                solver.alpha = 0.1
+                solver.beta = 0.1
+                diffx = x.copy()
+
+                # is it even necessary to flatten?
+                #smoothop = cu.diffpoisson(factor, pattern.flatten(), diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
+                smoothop = cu.diffpoisson(factor, pattern, diffx, bkg, diffx, filter, qbarrier[i])
+                proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
+
+                # TODO: verify that solver attributes are correct
+
+                # TODO: fix affine function
+                # we get affine = {our_linp, xlevel}
+                # our_linp is a function, xlevel is an array, probably 65536x1
+                # this i believe represents the offset of the affine function
+
+                x, out = solver.solve(smoothop, our_linp, proxop, -xlevel, affine_offset=xlevel)
 
 
 
@@ -177,7 +202,7 @@ def linop_helper(x, mode, dims, side, fullsize, pshape, cshape, filter, unshifte
     if mode == 0:
         y = np.array([fullsize, 2 * fullsize])
     elif mode == 1:
-        x = x.reshape(cshape)
+        x = x.reshape(cshape)  # twice the size in matlab!
         if dims == 3:
             x = np.fft.fftshift(x[0:side, 0:side, 0:side] + 1j * x[0:side, side:side * 2, 0:side])
         else:
@@ -189,7 +214,7 @@ def linop_helper(x, mode, dims, side, fullsize, pshape, cshape, filter, unshifte
         y = (side ** (-dims / 2)) * np.real(x.flatten()) * filter.flatten()
     elif mode == 2:
         x2 = np.zeros(pshape, dtype=complex)
-        x2[:] = np.real(x) * filter
+        x2 = np.real(x) * filter
         x2 = x2 * shifter
         x2 = np.fft.ifftn(x2)
         x2 = x2 * shifter
