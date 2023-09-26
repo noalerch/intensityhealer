@@ -117,8 +117,13 @@ def diffpoisson(scale, y, basey, minval, absrefpoint, filter, qbarrier):
 
 def create_proxop(diffx, penalty, ourlinp):
     diffxt = ourlinp(diffx, 2)
+    # diffxt seems slightly off...
+
+
     level = -diffxt
-    level[penalty == 0 and diffxt >= 0] = 0
+    # our lin p is wrong: should not reshape into 2d
+    mask = (penalty == 0) & (diffxt >= 0)
+    level[mask] = 0 # and diffxt >= 0] = 0
     xlevel = ourlinp(level, 1)
     proxop = zero_tolerant_quad(penalty, -diffxt - level, diffxt)
     return proxop, diffxt, level, xlevel
