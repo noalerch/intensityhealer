@@ -8,171 +8,291 @@
 import numpy as np
 import coacsutils as cu
 import sys
-
 sys.path.append('ConicSolver')
+# sys.path.append('~/exjobb/jackdaw/ConicSolver')
 import ConicSolver as cs
 
 
-class Healer:
-    def __init__(self, pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
-                 nzpenalty, iters, tolerance, nowindow=None):
-        """The main COACS function
-        pattern : ??
-            pattern to phase
-        support : ??
-            support mask (in autocorrelation space
-        bkg : ??
-            background signal, support for non-zero values here basically stale
-        init_guess : ??
-            start guess for the pattern
-        alg : ??
-            solving algorithm to use
-        num_rounds : int
-            number of outermost iterations
-        qbarrier : int?
-            qbarrier (2 * l) in each round
-        nzpenalty : ??
-            penalty constant outside of the support
-        iters : int
-            number of TFOCS (solver) iterations within the round
-        tolerance : ??
-            the tolerance used to determine end of iteration in TFOCS
-        nowindow: ??
-        """
+# class Healer:
+    #def __init__(self, pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
+    #             nzpenalty, iters, tolerance, nowindow=None):
+def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
+             nzpenalty, iters, tolerance, nowindow=None):
+    """The main COACS function
+    pattern : ??
+        pattern to phase
+    support : ??
+        support mask (in autocorrelation space
+    bkg : ??
+        background signal, support for non-zero values here basically stale
+    init_guess : ??
+        start guess for the pattern
+    alg : ??
+        solving algorithm to use
+    num_rounds : int
+        number of outermost iterations
+    qbarrier : int?
+        qbarrier (2 * l) in each round
+    nzpenalty : ??
+        penalty constant outside of the support
+    iters : int
+        number of TFOCS (solver) iterations within the round
+    tolerance : ??
+        the tolerance used to determine end of iteration in TFOCS
+    nowindow: ??
+    """
 
-        # TODO: if nargin < 11
+    # TODO: if nargin < 11
 
-        if nowindow is None:
-            nowindow = []
+    if nowindow is None:
+        nowindow = []
 
-        if len(nowindow) == 0:
-            nowindow = False
+    if len(nowindow) == 0:
+        nowindow = False
 
-        iter_factor = 1.1
+    iter_factor = 1.1
 
-        # handle scalars
-        # 1x69 in matlab, is this correct?
-        # resulting from num_rounds
-        # TODO: check this, possible error in matlab
-        # nzpenalty = np.ones(num_rounds) * nzpenalty  # redundant if nzpenalty is 1D
-        qbarrier = np.ones(num_rounds) * qbarrier
+    # handle scalars
+    # 1x69 in matlab, is this correct?
+    # resulting from num_rounds
+    # TODO: check this, possible error in matlab
+    # nzpenalty = np.ones(num_rounds) * nzpenalty  # redundant if nzpenalty is 1D
+    qbarrier = np.ones(num_rounds) * qbarrier
 
-        dims, side2, fullsize, pshape, cshape = cu.get_dims(pattern)
+    dims, side2, fullsize, pshape, cshape = cu.get_dims(pattern)
 
-        original_pattern = pattern.copy()
-        # TODO: check dimensions of pattern
-        pattern = pattern.reshape(fullsize, 1)
+    original_pattern = pattern.copy()
+    # TODO: check dimensions of pattern
+    pattern = pattern.reshape(fullsize, 1)
 
-        solver = cs.ConicSolver()
-        solver.alg = alg
-        solver.restart = 5e5
-        solver.count_ops = True
-        solver.print_stop_criterion = True
-        solver.print_every = 2500
-        # no regress restart option
-        solver.restart = -10000000  # ?
+    solver = cs.ConicSolver()
+    solver.alg = alg
+    solver.restart = 5e5
+    solver.count_ops = True
+    solver.print_stop_criterion = True
+    solver.print_every = 2500
+    # no regress restart option
+    solver.restart = -10000000  # ?
 
-        solver.autoRestart = 'fun' # ? double check this
+    solver.autoRestart = 'fun' # ? double check this
 
-        mask = np.hstack((np.reshape(support, pshape), np.zeros(np.reshape(support, pshape).shape)))
-        # TODO: check dimensions of mask
-        mask = np.reshape(mask, (fullsize * 2, 1))
+    mask = np.hstack((np.reshape(support, pshape), np.zeros(np.reshape(support, pshape).shape)))
+    # TODO: check dimensions of mask
+    mask = np.reshape(mask, (fullsize * 2, 1))
 
-        # purely ie zero mask in imaginary space
-        our_linp_flat = jackdaw_linop(original_pattern, 1)
-        # no windowing used within linop for now
-        our_linp = our_linp_flat
+    # purely ie zero mask in imaginary space
+    our_linp_flat = jackdaw_linop(original_pattern, 1)
+    # no windowing used within linop for now
+    our_linp = our_linp_flat
 
-        # global factor
+    # global factor
 
-        # empty guess?
-        if not init_guess:
-            init_guess = pattern.flatten()
-            # replace neg values with 0
-            init_guess[init_guess < 0] = 0
+    # empty guess?
+    if not init_guess:
+        init_guess = pattern.flatten()
+        # replace neg values with 0
+        init_guess[init_guess < 0] = 0
 
-        x = np.reshape(init_guess, (1, fullsize))
-        # need to copy to not overwrite later
-        x_prev = x.copy()
-        y = x.copy()
-        jval = 0
+    x = np.reshape(init_guess, (1, fullsize))
+    # need to copy to not overwrite later
+    x_prev = x.copy()
+    y = x.copy()
+    jval = 0
 
-        filter = np.ones((fullsize, 1))
-        rfilter = 1.0 / filter
+    filter = np.ones((fullsize, 1))
+    rfilter = 1.0 / filter
 
-        # i is outer round
-        for i in range(num_rounds):
-            # base_penalty = None
-            if nowindow:
-                factor = np.ones((65536, 1))
-                base_penalty = 1 - mask
-            else:
-                factor, base_penalty = cu.create_windows(original_pattern, mask, qbarrier[i], filter)
+    # i is outer round
+    for i in range(num_rounds):
+        # base_penalty = None
+        if nowindow:
+            factor = np.ones((65536, 1))
+            base_penalty = 1 - mask
+        else:
+            factor, base_penalty = cu.create_windows(original_pattern, mask, qbarrier[i], filter)
 
-            y = y * factor
-            x = x * factor
+        y = y * factor
+        x = x * factor
 
-            penalty = base_penalty * nzpenalty[i]
+        penalty = base_penalty * nzpenalty[i]
 
-            # acceleration scheme based on assumption of linear steps
-            # in response to decreasing qbarrier
-            if i > 0 and qbarrier[i] != qbarrier[i - 1]:
-                x_prev = x_prev * factor
-                if jval > 0:
-                    diffx = x + (x - x_prev) * (qbarrier[i] / qbarrier[i - 1])
-                    smoothop = cu.diffpoisson(factor, pattern.flatten(), diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
-
-            x_prev_inner = y.copy()
-            j_val_inner = -1  # ? might depend on what this is used for
-            solver.maxIter = np.ceil(iters[i] / iter_factor)
-
-            # inner acceleration scheme
-            # based on overall difference to previous pre-acceleration start
-            while True:
-                if j_val_inner >= 0:
-                    diffx = y.copy()
-
-                    smoothop = cu.diffpoisson(factor, pattern.flatten(), diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
-
-                    proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
-
-                    newstep = our_linp(x - x_prev, 2)
-                    negstep = -newstep
-                    negstep[penalty == 0] = 0
-                    newstep[penalty > 0] = 0
-                    negstep = our_linp(negstep, 1)
-                    newstep = our_linp(newstep, 1)
-
-                    ############ ignore this for now
-                    y = x + half_bounded_line_search()
-
-                    x = y + half_bounded_line_search() # ooga booga
-                else:
-                    x = y.copy()
-
-                x_prev_inner = y.copy()
-                j_val_inner = j_val_inner + 1
-                solver.max_iterations = np.ceil(solver.max_iterations * iter_factor)
-                solver.tolerance = tolerance[i]
-                solver.L_0 = 2 / qbarrier[i]
-                solver.L_exact = solver.L_0 * (96*96*96)**0.5
-                solver.alpha = 0.1
-                solver.beta = 0.1
-                diffx = x.copy()
-
-                # is it even necessary to flatten?
-                #smoothop = cu.diffpoisson(factor, pattern.flatten(), diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
-                smoothop = cu.diffpoisson(factor, pattern, diffx, bkg, diffx, filter, qbarrier[i])
+        # acceleration scheme based on assumption of linear steps
+        # in response to decreasing qbarrier
+        if i > 0 and qbarrier[i] != qbarrier[i - 1]:
+            x_prev = x_prev * factor
+            if jval > 0:
+                diffx = x + (x - x_prev) * (qbarrier[i] / qbarrier[i - 1])
+                smoothop = cu.diffpoisson(factor, pattern.flatten(), diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
                 proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
 
-                # TODO: verify that solver attributes are correct
+                new_step = our_linp(x - x_prev, 2)
+                neg_step = -new_step
 
-                # TODO: fix affine function
-                # we get affine = {our_linp, xlevel}
-                # our_linp is a function, xlevel is an array, probably 65536x1
-                # this i believe represents the offset of the affine function
+                neg_step[penalty == 0] = 0
+                neg_step = our_linp(neg_step, 1)
 
-                x, out = solver.solve(smoothop, our_linp, proxop, -xlevel, affine_offset=xlevel)
+                new_step[penalty > 0] = 0
+                new_step = our_linp(new_step, 1)
+
+                # y = x
+                f_1 = lambda z: smoothop(z + y - diffx)
+                y = x + half_bounded_line_search(new_step, f_1)
+
+                f_2 = lambda z: smoothop(z + y - diffx) + proxop(our_linp(z + y - diffx - xlevel, 2))
+
+                # TODO
+                # VERIFY that y is updated in every call to f_2
+                y += half_bounded_line_search(neg_step, f_2)
+                y += half_bounded_line_search(-neg_step, f_2)
+                y += half_bounded_line_search(x - x_prev, f_2)
+                y += half_bounded_line_search(neg_step, f_2)
+                y += half_bounded_line_search(-neg_step, f_2)
+
+                y += half_bounded_line_search(new_step, f_1)  # NOTE f_1
+
+                y += half_bounded_line_search(x - x_prev, f_2)
+
+            # verify division semantics
+            x_prev = x / factor
+            jval = jval + 1
+
+        x_prev_inner = y.copy()
+        j_val_inner = -1  # ? might depend on what this is used for
+        solver.maxIter = np.ceil(iters[i] / iter_factor)
+
+        # inner acceleration scheme
+        # based on overall difference to previous pre-acceleration start
+        while True:
+            if j_val_inner >= 0:
+                diffx = y.copy()
+
+                smoothop = cu.diffpoisson(factor, pattern.flatten(), diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
+
+                proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
+
+                #newstep = our_linp(x - x_prev, 2)
+                #negstep = -newstep
+                #negstep[penalty == 0] = 0
+                #newstep[penalty > 0] = 0
+                #negstep = our_linp(negstep, 1)
+                #newstep = our_linp(newstep, 1)
+
+                ############ ignore this for now
+                y = x + half_bounded_line_search()
+
+                # x?? this shadows existing x
+                # we use z instead here (see Jackdaw if it acts up)
+                f_3 = lambda z: smoothop(z) + proxop(our_linp(z - xlevel, 2))
+
+                x = y + half_bounded_line_search(y - x_prev_inner, f_3)
+            else:
+                x = y.copy()
+
+            x_prev_inner = y.copy()
+            j_val_inner += 1
+            solver.max_iterations = np.ceil(solver.max_iterations * iter_factor)
+            solver.tolerance = tolerance[i]
+            solver.L_0 = 2 / qbarrier[i]
+            solver.L_exact = solver.L_0 * (96 * 96 * 96)**0.5
+            solver.alpha = 0.1
+            solver.beta = 0.1
+            diffx = x.copy()
+
+            # is it even necessary to flatten?
+            #smoothop = cu.diffpoisson(factor, pattern.flatten(), diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
+            smoothop = cu.diffpoisson(factor, pattern, diffx, bkg, diffx, filter, qbarrier[i])
+            proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
+
+            # TODO: verify that solver attributes are correct
+
+            # TODO: fix affine function
+            # we get affine = {our_linp, xlevel}
+            # our_linp is a function, xlevel is an array, probably 65536x1
+            # this i believe represents the offset of the affine function
+
+            x, out = solver.solve(smoothop, our_linp, proxop, -xlevel, affine_offset=xlevel)
+
+            # TODO: see if these copies are necessary
+            xt_update = x.copy()
+            x = our_linp(x, 1)
+            xrt_norm = np.linalg.norm(xt_update - our_linp(x, 2))
+            x_step = x.copy()
+            x_update = x + xlevel
+            old_y = y.copy()
+            prev_step = x_prev_inner - diffx
+            level_prev_diff = np.linalg.norm(prev_step)
+            y = x_update.flatten() + diffx.flatten()
+
+            # flatten necessary?
+            f_4 = lambda x: smoothop(x + x_update.flatten()) + proxop(our_linp(x + x_step, 2))
+            y += half_bounded_line_search(x_update)
+            # smoothop(y - diffx.flatten())
+
+            # may need to flatten diffx and xlevel
+            p_step = proxop(our_linp(y - (diffx + xlevel), 2))
+
+            # smoothop(0 * diffx.flatten())
+            diffx_old = diffx.copy()
+            diffx = y.copy()
+
+            # flatten some of these question mark?
+            smoothop = cu.diffpoisson(factor, pattern, diffx, bkg, diffx, filter, qbarrier[i])
+            proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
+
+            level_x_diff = np.linalg.norm(x_prev_inner - y)
+
+            # hopefully non-issue
+            if level_prev_diff > level_x_diff:
+                print("Do we need to reset acceleration?")
+
+            x = y.copy()
+
+            x2 = x / factor
+
+            # here we use matlab syntax
+            # save x26 x2
+            # we should investigate this further
+
+            diffstep = x_prev_inner - y
+
+            positive_pattern = pattern[pattern >= 0]
+            positive_factor = factor[pattern >= 0]
+
+            rchange = np.linalg.norm(np.diff(positive_pattern, axis=None), ord=1) / np.linalg.norm(
+                positive_pattern * positive_factor, ord=1)
+
+            if p_step > 0:
+                print("Penalty too low, saddle point circus")
+                break
+
+            # TODO: flatten??
+            if j_val_inner >= 0 and rchange < 5e-9 * out.niter and \
+                abs(smoothop(y - diffx) - smoothop(x_prev_inner - diffx) + proxop(our_linp(y - diffx + xlevel, 2)) \
+                    - proxop(our_linp(x_prev_inner, 2) - diffxt - level)):
+                print("Next outer iteration")
+                break
+
+            if j_val_inner > 20:
+                print("Going next anyway")
+                break
+
+            if out.niter < solver.max_iterations:
+                print("Reverting max_iterations")
+                solver.max_iterations = np.ceil(solver.max_iterations / iter_factor)
+
+            if i < num_rounds and qbarrier[i] == qbarrier[i + 1]:
+                print("Not final iter, moving on")
+                break
+
+        y = y / factor
+        x = x / factor
+
+    out_pattern = np.reshape(x, pshape)
+    details = out.copy()
+
+    return out_pattern, details # , factor
+
+
 
 
 
