@@ -4,7 +4,7 @@
 # As well as the TFOCS library for MATLAB: http://cvxr.com/tfocs/
 # Bachelor's degree project in Computer Science at Uppsala University
 # 2023
-
+import scipy.fftpack as sfft
 import numpy as np
 import coacsutils as cu
 import sys
@@ -325,6 +325,8 @@ def linop_helper(x, mode, dims, side, fullsize, pshape, cshape, filter, unshifte
         if dims == 3:
             x = np.fft.fftshift(x[0:side, 0:side, 0:side] + 1j * x[0:side, side:side * 2, 0:side])
         else:
+
+            # TODO: evaluate this. likely wrong
             #x = np.fft.fftshift(x[side:side*2, :side] + 1j * x[:side, :side])
             # Split the array into two parts and add the imaginary part
             #part1 = x[:side, :side] + 1j * x[side:side*2, :side]
@@ -338,47 +340,23 @@ def linop_helper(x, mode, dims, side, fullsize, pshape, cshape, filter, unshifte
 
 
             print(np.min(x))
-            # NOTE: fftshift is not the same as fftshift in matlab
-            # the matlab version does not shift the 0-frequency component
 
         x2 = x.copy() * np.conj(shifter)
         x = np.fft.fftn(x2) * np.conj(shifter)
 
         y = (side ** (-dims / 2)) * np.real(x.flatten()) * filter  # might not work if filter is an array
     elif mode == 2:
-        # x2 = np.zeros(pshape)
-        #x2 = np.real(x) * filter
-        #x2 = x2 * shifter
-        #x2 = np.fft.ifftn(x2)
-        #x2 = x2 * shifter
-        #x2 = np.fft.ifftshift(x2)
-        #x2 = np.concatenate([np.real(side ** (dims / 2) * x2), np.imag(side ** (dims / 2) * x2)], axis=0)
-#       # y = np.concatenate([np.real((side ** (dims / 2)) * x2), np.imag(side ** (dims / 2) * x2)]).reshape(1, 2 * fullsize)
-        #real_part = np.real(side ** (dims / 2) * x2)
-        #imag_part = np.imag(side ** (dims / 2) * x2)
-
-    # Combine the real and imaginary parts
-        #y = np.concatenate([real_part, imag_part]).reshape(1, 2 * fullsize)
-#        y = np.reshape(x2, (2 * fullsize))
-
-        ####################
-        ####################
-        ####################
-        ## SUSPICOUS RESULTS
-        x2 = np.zeros(pshape)
+        # x2 = np.zeros(pshape)  # redundant, probably
         x2 = (x.real * filter).reshape(pshape)
-
         x2 = x2 * shifter
-        # different results from matlab
         x2 = np.fft.ifftn(x2)
-        # transpose?
         x2 = x2 * shifter
         x2 = np.fft.ifftshift(x2)
-        test = x2.flatten()
 
-        # we want y to be between about -10 and 33
-        y = np.concatenate([x2.real, x2.imag]).reshape((2 * fullsize, 1))
-        y = y.flatten()
+        real_part = np.real(side ** (dims / 2) * x2)
+        imag_part = np.imag(side ** (dims / 2) * x2)
+        y = np.concatenate((real_part.ravel(), imag_part.ravel()))
+        y = y.reshape((2 * fullsize, 1))
 
     assert y is not None
     return y
