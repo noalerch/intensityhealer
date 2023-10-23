@@ -76,9 +76,9 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
 
     solver.autoRestart = 'fun' # ? double check this
 
-    mask = np.hstack((np.reshape(support, pshape), np.zeros(np.reshape(support, pshape).shape)))
+    mask = np.concatenate([np.reshape(support, pshape), np.zeros(np.reshape(support, pshape).shape)])
     # TODO: check dimensions of mask
-    mask = np.reshape(mask, (fullsize * 2, 1))
+    mask = np.reshape(mask, (fullsize * 2, ))
 
     # purely ie zero mask in imaginary space
     our_linp_flat = jackdaw_linop(original_pattern, 1)
@@ -93,20 +93,21 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
         # replace neg values with 0
         init_guess[init_guess < 0] = 0
 
-    x = np.reshape(init_guess, (1, fullsize))
+    #x = np.reshape(init_guess, (1, fullsize))
+    x = init_guess.flatten()
     # need to copy to not overwrite later
     x_prev = x.copy()
     y = x.copy()
     jval = 0
 
-    filter = np.ones((fullsize, 1))
+    filter = np.ones((fullsize, ))
     rfilter = 1.0 / filter
 
     # i is outer round
     for i in range(num_rounds):
         # base_penalty = None
         if nowindow:
-            factor = np.ones((65536, 1))
+            factor = np.ones(65536)
             base_penalty = 1 - mask
         else:
             factor, base_penalty = cu.create_windows(original_pattern, mask, qbarrier[i], filter)
@@ -114,6 +115,8 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
         y = y * factor
         x = x * factor
 
+        # FIXME:
+        # penalty might be wrong
         penalty = base_penalty * nzpenalty[i]
 
         # acceleration scheme based on assumption of linear steps
@@ -210,7 +213,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             # our_linp is a function, xlevel is an array, probably 65536x1
             # this i believe represents the offset of the affine function
 
-            x, out = solver.solve(smoothop, our_linp, proxop, -xlevel, affine_offset=xlevel)
+            x, out = solver.solve(smoothop, our_linp, proxop, -level, affine_offset=xlevel)
 
             # TODO: see if these copies are necessary
             xt_update = x.copy()
@@ -334,12 +337,17 @@ def linop_helper(x, mode, dims, side, fullsize, pshape, cshape, filter, unshifte
             part1 = x[:side, :side]
             part2 = 1j * x[side:side*2, :side]
 
-            # Perform the fftshift-like operation by swapping parts
-            x = (part2 + part1)
-            x = np.fft.fftshift(x)
+            #x = (part2 + part1)
+            #x = np.fft.fftshift(x)
+            sliced_x = part1 + part2
+            # sliced_x = x[:side, :side] + 1j * x[side:side * 2, :side]
 
+            # different from matlab?
 
-            print(np.min(x))
+            # FIXME FIXME FIXME
+            # TODO TODO TODO
+            # FIXME not correct
+            x = np.fft.fftshift(sliced_x)
 
         x2 = x.copy() * np.conj(shifter)
         x = np.fft.fftn(x2) * np.conj(shifter)
@@ -356,7 +364,8 @@ def linop_helper(x, mode, dims, side, fullsize, pshape, cshape, filter, unshifte
         real_part = np.real(side ** (dims / 2) * x2)
         imag_part = np.imag(side ** (dims / 2) * x2)
         y = np.concatenate((real_part.ravel(), imag_part.ravel()))
-        y = y.reshape((2 * fullsize, 1))
+        #y = y.reshape((2 * fullsize, 1))
+        y = y.flatten()
 
     assert y is not None
     return y
