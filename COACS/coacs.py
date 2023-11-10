@@ -116,7 +116,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
         x = x * factor
 
         # FIXME:
-        # penalty might be wrong
+        # base penalty not quite right
         penalty = base_penalty * nzpenalty[i]
 
         # acceleration scheme based on assumption of linear steps
@@ -202,8 +202,9 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             diffx = x.copy()
 
             # is it even necessary to flatten?
-            #smoothop = cu.diffpoisson(factor, pattern.flatten(), diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
-            smoothop = cu.diffpoisson(factor, pattern, diffx, bkg, diffx, filter, qbarrier[i])
+            # yes it is
+            smoothop = cu.diffpoisson(factor, pattern.flatten(), diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
+            #smoothop = cu.diffpoisson(factor, pattern, diffx, bkg, diffx, filter, qbarrier[i])
             proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
 
             # TODO: verify that solver attributes are correct
@@ -334,12 +335,12 @@ def linop_helper(x, mode, dims, side, fullsize, pshape, cshape, filter, unshifte
             # Split the array into two parts and add the imaginary part
             #part1 = x[:side, :side] + 1j * x[side:side*2, :side]
             #part2 = x[side:side * 2, :side]
-            part1 = x[:side, :side]
-            part2 = 1j * x[side:side*2, :side]
+            #part1 = x[:side, :side]
+            #part2 = 1j * x[side:side*2, :side]
 
             #x = (part2 + part1)
             #x = np.fft.fftshift(x)
-            sliced_x = part1 + part2
+            #sliced_x = part1 + part2
             # sliced_x = x[:side, :side] + 1j * x[side:side * 2, :side]
 
             # different from matlab?
@@ -347,24 +348,34 @@ def linop_helper(x, mode, dims, side, fullsize, pshape, cshape, filter, unshifte
             # FIXME FIXME FIXME
             # TODO TODO TODO
             # FIXME not correct
-            x = np.fft.fftshift(sliced_x)
+            #x = np.fft.fftshift(sliced_x)
+    #x = np.fft.fftshift(x[side:side*2, :side] + 1j * x[:side, :side])
+            part1 = x[0:side, :]
+            part2 = x[side:2*side, :]
+            summed = part1 + part2
+            x = np.fft.fftshift(summed)
 
-        x2 = x.copy() * np.conj(shifter)
+            # FIXME: so x is apparently still fucked
+
+        x2 = x * np.conj(shifter)
         x = np.fft.fftn(x2) * np.conj(shifter)
 
         y = (side ** (-dims / 2)) * np.real(x.flatten()) * filter  # might not work if filter is an array
     elif mode == 2:
-        # x2 = np.zeros(pshape)  # redundant, probably
-        x2 = (x.real * filter).reshape(pshape)
+
+        x2 = np.zeros(pshape)  # redundant, probably
+        x2 = np.real(x) * filter
+        x2 = x2.reshape(pshape)
         x2 = x2 * shifter
         x2 = np.fft.ifftn(x2)
         x2 = x2 * shifter
         x2 = np.fft.ifftshift(x2)
 
-        real_part = np.real(side ** (dims / 2) * x2)
-        imag_part = np.imag(side ** (dims / 2) * x2)
+        x3 = (side ** (dims / 2)) * x2
+        real_part = np.real(x3)
+        imag_part = np.imag(x3)
         y = np.concatenate((real_part.ravel(), imag_part.ravel()))
-        #y = y.reshape((2 * fullsize, 1))
+        y = y.reshape((2 * fullsize, 1))
         y = y.flatten()
 
     assert y is not None

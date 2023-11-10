@@ -4,16 +4,21 @@ import time
 import coacs
 import random
 
+import scipy as sp
+
 # todo: refactor into functions and perhaps class
 # load complex reference matrix
 f = h5py.File('reference.mat', 'r')
+f2 = sp.io.loadmat('/home/noax/jackdaw/COACS/rpois.mat')
 vars = list(f.keys())
 reference = f['reference'][:]
 r3b = f['r3b'][:]
 r = f['r'][:]
-f2 = f['f2'][:]
 mask = f['mask'][:]
 reference = reference['real'] + reference['imag'] * 1j
+
+test_sampling = f2['r']
+test_r = test_sampling.transpose()
 
 rounds = 68
 # change to ndarrays?
@@ -53,12 +58,14 @@ for qq2 in range(numrep):
 #### note: matlab uses parfor
 for qq2 in range(numrep):
     banner = print("################## REPLICATE ", qq2)
-    r = rs[qq2 - 1]
+    r = rs[qq2]
     tic = time.time()
-    v, b = coacs.Healer(r, mask, np.zeros((256, 256)), [], 'AT', len(qbarrier), qbarrier, nzpenalty, iters, tols, nowindow)
+    # v, b = coacs.heal(r, mask, np.zeros((256, 256)), [], 'AT', len(qbarrier), qbarrier, nzpenalty, iters, tols, nowindow)
+    v, b = coacs.heal(test_r, mask, np.zeros((256, 256)), [], 'AT', len(qbarrier), qbarrier, nzpenalty, iters, tols, nowindow)
 
     # TODO: check correctness below
     toc = time.time()
+    # vs[qq2 - 1] = v
     vs[qq2 - 1] = v
 
 rsold = rs
@@ -68,8 +75,10 @@ rs = np.empty(50)
 vs = np.empty(50)
 
 for qq2 in range(numrep):
-    rs[qq2 - 1] = rsold[qq2 - 1]
-    vs[qq2 - 1] = vsold[qq2 - 1]
+    # rs[qq2 - 1] = rsold[qq2 - 1]
+    # vs[qq2 - 1] = vsold[qq2 - 1]
+    rs[qq2] = rsold[qq2]
+    vs[qq2] = vsold[qq2]
 
 rsold = None
 vsold = None
