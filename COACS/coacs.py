@@ -63,7 +63,8 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
 
     original_pattern = pattern.copy()
     # TODO: check dimensions of pattern
-    pattern = pattern.reshape(fullsize, 1)
+    # pattern = pattern.reshape(fullsize, 1)
+    pattern = pattern.reshape(fullsize, 1).flatten()
 
     solver = cs.ConicSolver()
     solver.alg = alg
@@ -89,7 +90,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
 
     # empty guess?
     if not init_guess:
-        init_guess = pattern.flatten()
+        init_guess = pattern
         # replace neg values with 0
         init_guess[init_guess < 0] = 0
 
@@ -125,7 +126,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             x_prev = x_prev * factor
             if jval > 0:
                 diffx = x + (x - x_prev) * (qbarrier[i] / qbarrier[i - 1])
-                smoothop = cu.diffpoisson(factor, pattern.flatten(), diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
+                smoothop = cu.diffpoisson(factor, pattern, diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
                 proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
 
                 new_step = our_linp(x - x_prev, 2)
@@ -169,22 +170,10 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             if j_val_inner >= 0:
                 diffx = y.copy()
 
-                smoothop = cu.diffpoisson(factor, pattern.flatten(), diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
+                smoothop = cu.diffpoisson(factor, pattern, diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
 
                 proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
 
-                #newstep = our_linp(x - x_prev, 2)
-                #negstep = -newstep
-                #negstep[penalty == 0] = 0
-                #newstep[penalty > 0] = 0
-                #negstep = our_linp(negstep, 1)
-                #newstep = our_linp(newstep, 1)
-
-                ############ ignore this for now
-                y = x + half_bounded_line_search()
-
-                # x?? this shadows existing x
-                # we use z instead here (see Jackdaw if it acts up)
                 f_3 = lambda z: smoothop(z) + proxop(our_linp(z - xlevel, 2))
 
                 x = y + half_bounded_line_search(y - x_prev_inner, f_3)
@@ -203,7 +192,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
 
             # is it even necessary to flatten?
             # yes it is
-            smoothop = cu.diffpoisson(factor, pattern.flatten(), diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
+            smoothop = cu.diffpoisson(factor, pattern, diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
             #smoothop = cu.diffpoisson(factor, pattern, diffx, bkg, diffx, filter, qbarrier[i])
             proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
 
@@ -229,7 +218,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
 
             # flatten necessary?
             f_4 = lambda x: smoothop(x + x_update.flatten()) + proxop(our_linp(x + x_step, 2))
-            y += half_bounded_line_search(x_update)
+            y += half_bounded_line_search(x_update, f_4)
             # smoothop(y - diffx.flatten())
 
             # may need to flatten diffx and xlevel
@@ -262,7 +251,8 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             positive_pattern = pattern[pattern >= 0]
             positive_factor = factor[pattern >= 0]
 
-            rchange = np.linalg.norm(np.diff(positive_pattern, axis=None), ord=1) / np.linalg.norm(
+#           # TODO: check diff
+            rchange = np.linalg.norm(np.diff(positive_pattern), ord=1) / np.linalg.norm(
                 positive_pattern * positive_factor, ord=1)
 
             if p_step > 0:
@@ -270,7 +260,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
                 break
 
             # TODO: flatten??
-            if j_val_inner >= 0 and rchange < 5e-9 * out.niter and \
+            if j_val_inner >= 0 and rchange < 5e-9 * out.n_iter and \
                 abs(smoothop(y - diffx) - smoothop(x_prev_inner - diffx) + proxop(our_linp(y - diffx + xlevel, 2)) \
                     - proxop(our_linp(x_prev_inner, 2) - diffxt - level)):
                 print("Next outer iteration")
@@ -280,7 +270,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
                 print("Going next anyway")
                 break
 
-            if out.niter < solver.max_iterations:
+            if out.n_iter < solver.max_iterations:
                 print("Reverting max_iterations")
                 solver.max_iterations = np.ceil(solver.max_iterations / iter_factor)
 

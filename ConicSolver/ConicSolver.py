@@ -104,6 +104,9 @@ class ConicSolver:
 
         self.iv.x = x0
 
+        # should work in our case
+        self.L = self.L_0
+
         if np.isinf(self.iv.C_x):
             self.iv.C_x = self.apply_projector(self.iv.x)
             if np.isinf(self.iv.C_x):
@@ -126,7 +129,7 @@ class ConicSolver:
         # call AT function to optimize
         self.auslender_teboulle()
 
-        return self.output
+        return self.iv.x, self.output
 
     def auslender_teboulle(self):  # we pass iv as an argument to avoid using self.iv
         """Auslender & Teboulle's method
@@ -137,10 +140,8 @@ class ConicSolver:
         """
 
         # following taken from tfocs_initialize.m
-        L = self.L_0
         # theta = float('inf')
         # self.f_v_old = float('inf')
-
         counter_Ay = 0
         counter_Ax = 0
 
@@ -187,7 +188,7 @@ class ConicSolver:
 
                     self.iv.g_y = self.apply_linear(self.iv.g_Ay, 2)
 
-                step: float = 1 / (self.theta * L)
+                step: float = 1 / (self.theta * self.L)
 
                 print(z_old - step * self.iv.g_y)
                 #
@@ -444,6 +445,11 @@ class ConicSolver:
                 if np.isinf(self.iv.C_x):
                     self.iv.C_x = self.apply_projector(self.iv.x)
 
+                saved_C = self.iv.C_x
+                saved_f = self.iv.f_x
+                print(saved_C)
+                print(saved_f)
+                # FIXME: C_x is an array for some reason
                 self.f_v = self.max_min * (self.iv.f_x + self.iv.C_x)
                 cur_pri = self.iv.x  # want better name but idk what this means
                 v_is_x = True
@@ -487,6 +493,7 @@ class ConicSolver:
                 bchar = '*'
 
             # TODO: format may be incorrect
+            # FIXME: crashes at some point due to 0 L
             to_print = "('%-4d| %+12.5e  %8.2e  %8.2e%c)" % (self.n_iter, self.f_v,
                                                                  norm_dx / max(norm_x, 1), 1 / self.L, bchar)
 
@@ -543,17 +550,16 @@ class ConicSolver:
                             f_size + 1000)  # this is +1 compated to TFOCS due to matlab indexing. Does this matter?
 
                 # set values from end to czise to 0
-                self.output.f
 
                 # removed + 1 because of 0-indexing
-                self.output.f = np.pad(self.output.f, ((0, csize), (0, 0)))  # TODO: verify
-                self.output.theta = np.pad(self.output.theta, ((0, csize), (0, 0)))  # TODO: verify
-                self.output.step_size = np.pad(self.output.step_size, ((0, csize), (0, 0)))  # TODO: verify
-                self.output.norm_grad = np.pad(self.output.norm_grad, ((0, csize), (0, 0)))  # TODO: verify
+                self.output.f = np.pad(self.output.f, (0, csize))  # TODO: verify
+                self.output.theta = np.pad(self.output.theta, (0, csize))  # TODO: verify
+                self.output.step_size = np.pad(self.output.step_size, (0, csize))  # TODO: verify
+                self.output.norm_grad = np.pad(self.output.norm_grad, (0, csize))  # TODO: verify
 
                 if self.count_ops:
                     # uses : instad of 1 in matlab code. Please check!
-                    self.output.norm_grad = np.pad(self.output.norm_grad, ((0, csize), (0, 0)))  # TODO: verify
+                    self.output.norm_grad = np.pad(self.output.norm_grad, (0, csize))  # TODO: verify
 
                 # TODO: check indexing
 
@@ -679,6 +685,7 @@ class ConicSolver:
         elif self.L_local == float('inf'):
             self.L_local = self.L
 
+        # FIXME: L is wrong
         self.L = min(self.L_exact, self.L / self.beta)
 
         return False, counter_Ax
@@ -790,6 +797,7 @@ class SolverOutput:
         self.theta = np.array([])
         self.step_size = np.array([])
         self.norm_grad = np.array([])
+        self.counts = np.array([])
         self.x_or_y = None
         self.dual = None
 
