@@ -3,6 +3,7 @@ import h5py
 import time
 import coacs
 import random
+from tempfile import TemporaryFile
 
 import scipy as sp
 
@@ -41,10 +42,10 @@ for i in range(rounds):
     tolval = val * 1e-14
     tols.append(tolval)
 
-numrep = 50
+numrep = 1
 # cell arrays in matlab
-rs = np.empty((50, 256, 256))
-vs = np.empty((50, 256, 256))
+rs = np.empty((numrep, 256, 256))
+vs = np.empty((numrep, 256, 256))
 
 random.seed(0)
 
@@ -79,6 +80,10 @@ for qq2 in range(numrep):
     # vs[qq2 - 1] = vsold[qq2 - 1]
     rs[qq2] = rsold[qq2]
     vs[qq2] = vsold[qq2]
+
+print(vs)
+
+np.save("pattern.npy", vs)
 
 rsold = None
 vsold = None

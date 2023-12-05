@@ -55,7 +55,7 @@ class ConicSolver:
         self.L = self.L_0
         self.theta = float('inf')
         self.f_v_old = float('inf')
-        self.f_v = None  # i don't know
+        self.f_v = None  # objective value
         self.xy_sq = 0
         # the way this works in TFOCS is that affineF
         # is a cell array of an arbitrary amount of
@@ -64,12 +64,6 @@ class ConicSolver:
         # assume false
         if self.adjoint:
             print("adjoint not implemented!")
-
-
-        # self.iv = IterationVariables()
-
-
-        ######################### ???##########
 
         self.restart_iter = 0
         self.warning_lipschitz = False  # 0 in matlab
@@ -109,12 +103,14 @@ class ConicSolver:
 
         if np.isinf(self.iv.C_x):
             self.iv.C_x = self.apply_projector(self.iv.x)
-            if np.isinf(self.iv.C_x):
+            if np.isinf(self.iv.C_x):  # still inf? get gradient
                 self.iv.C_x, self.iv.x = self.apply_projector(self.iv.x, 1)
 
         size_ambig = True
         if size_ambig:
-            self.iv.A_x = self.apply_linear(self.iv.x, 1)
+            # pretty good but slightly wrong
+            self.iv.A_x = self.apply_linear(self.iv.x, 1)  # correct so far
+            # is this where it explodes?
         else:
             self.iv.A_x = np.zeros((self.output_dims, self.output_dims))
 
@@ -162,7 +158,6 @@ class ConicSolver:
 
                 # next iteration
                 if self.theta < 1:
-                    print("we in here")
                     self.iv.y = (1 - self.theta) * x_old + self.theta * z_old
 
                     if counter_Ay >= self.counter_reset:
@@ -190,11 +185,11 @@ class ConicSolver:
 
                 step: float = 1 / (self.theta * self.L)
 
-                print(z_old - step * self.iv.g_y)
-                #
-                # initially: C_z = 0, z = 100x1 zeros in tfocs
-                # for us, C_z is inf!
+
+                # C_z correct, z slightly off
                 self.iv.C_z, self.iv.z = self.apply_projector(z_old - step * self.iv.g_y, t=step, grad=1)
+
+                # A_z looks correct
                 self.iv.A_z = self.apply_linear(self.iv.z, 1)
 
                 # new iteration
@@ -220,7 +215,7 @@ class ConicSolver:
                 self.iv.g_Ax = np.array([])
                 self.iv.g_x = np.array([])
 
-                break_val = self.backtrack(counter_Ax)
+                break_val, counter_Ax = self.backtrack(counter_Ax)
                 if break_val:
                     break
 
@@ -239,15 +234,12 @@ class ConicSolver:
         if v_is_y and not self.output_always_use_x \
                 and not self.data_collection_always_use_x:
             f_vy = self.f_v
-        #    if self.saddle:
-        #        dual_y = cur_dual
 
         if not v_is_x:
             if self.saddle:
                 if self.iv.g_Ax is None:
                     self.iv.f_x, self.iv.g_Ax = self.apply_smooth(self.iv.A_x, grad=1)
 
-                # cur_dual = get_dual(self.g_Ax)
 
             elif np.isinf(self.iv.C_x):
                 self.iv.C_x = self.apply_projector(self.iv.x)
@@ -260,14 +252,10 @@ class ConicSolver:
         if v_is_y and not self.output_always_use_x and f_vy < self.f_v:
             self.f_v = f_vy
 
-            # if self.saddle:
-            # cur_dual = dual_y
-
             self.iv.x = self.iv.y
             x_or_y_string = 'y'
 
-        # ignoring because not saddle by default in tfocs
-        # if self.saddle:
+        # ignoring saddle points
 
         if self.fid and self.print_every:
             print("Finished: %s\n" % status)  # , file=self.fid)
@@ -393,13 +381,13 @@ class ConicSolver:
                 if comp_y[1]:
                     self.iv.f_y, self.iv.g_Ay = self.apply_smooth(self.iv.A_y, grad=1)
                 elif comp_y[0]:
-                    self.iv.f_y = self.apply_smooth(self.iv.A_y, grad=1)
+                    self.iv.f_y = self.apply_smooth(self.iv.A_y)
 
                 current_priority = self.iv.y
                 if self.saddle:
                     current_dual = self.iv.g_Ay
 
-                self.f_v = np.maxmin(self.iv.f_y + self.iv.C_y)
+                self.f_v = self.max_min * (self.iv.f_y + self.iv.C_y)
                 v_is_y = True
 
                 if self.data_collection_always_use_x:
@@ -440,47 +428,25 @@ class ConicSolver:
                     current_dual = self.iv.g_Ax
 
                 if np.isinf(self.iv.f_x):
-                    self.iv.f_x = self.apply_smooth(self.iv.A_x, grad=1)
+                    self.iv.f_x = self.apply_smooth(self.iv.A_x)
 
                 if np.isinf(self.iv.C_x):
                     self.iv.C_x = self.apply_projector(self.iv.x)
 
-                saved_C = self.iv.C_x
-                saved_f = self.iv.f_x
-                print(saved_C)
-                print(saved_f)
-                # FIXME: C_x is an array for some reason
                 self.f_v = self.max_min * (self.iv.f_x + self.iv.C_x)
-                cur_pri = self.iv.x  # want better name but idk what this means
                 v_is_x = True
+
                 # Undo calculations
                 self.iv.f_x = f_x_save
                 self.iv.g_Ax = g_Ax_save
 
-            # if ~isempty(errFcn) & & iscell(errFcn)
-            # python has no cell array (most like Python list)
-            # what to do here?
-            # TODO: ignoring this case for now
-            #       please investigate but it does not seem error_function in this impl
-            #       will ever be a matlab cell array equivalent...
-            #       (also, it is null in COACS)
-            # if self.error_function is not None and np.iscell(self.error_function):
-            #    errs = np.zeros(1, )
-
-            # if ~isempty(stopFcn)
-            # again irrelevant for jackdaw COACS. TODO
+            # TODO: we ignore error and stop functions
 
         # iterate line 226
         if status == "" and self.beta < 1 and self.backtrack_simple \
                 and self.L_local > self.L_exact:
-            # NOTE: it appears localL in TFOCS arises from the backtracking logic
-            # we put L_local as a class instance attribute
             self.warning_lipschitz = True
-        # else probably not needed
-        # else:
-        # warning_lipschitz = False
 
-        # print status
         if will_print:
             if self.warning_lipschitz:
                 self.warning_lipschitz = False
@@ -493,28 +459,25 @@ class ConicSolver:
                 bchar = '*'
 
             # TODO: format may be incorrect
-            # FIXME: crashes at some point due to 0 L
             to_print = "('%-4d| %+12.5e  %8.2e  %8.2e%c)" % (self.n_iter, self.f_v,
                                                                  norm_dx / max(norm_x, 1), 1 / self.L, bchar)
 
-            # NOTE: matlab fprintf prints to file!
-            # TODO: all prints are for now just to stdout
-            print(to_print)  # , file=self.fid)
+            print(to_print, end="")
 
             if self.count_ops:
-                print("|")  # , file=self.fid)
+                print("|", end="")
 
                 # TODO: tfocs_count___ is array??
-                print("%5d", self.count)  # , file=self.fid)
+                # print(f"%5d", self.count)  # , file=self.fid)
+                print(self.count, end="")  # , file=self.fid)
 
             if self.error_function is not None:
                 if self.count_ops:
-                    print(' ')  # , file=self.fid)
+                    print(' ', end="")  # , file=self.fid)
 
-                print('|')  # , file=self.fid)
+                print('|', end="")  # , file=self.fid)
                 # TODO: no errs since error function is null by default
                 #       thus, ignore for now
-                # print(" {:8.2e}".format(errs))
 
             # display number used to determine stopping
             # in COACS this should always be 1
@@ -538,7 +501,7 @@ class ConicSolver:
                 print(" %8.2e", stop_resid)  # , file=self.fid) # hopefully correct syntax
 
             if self.print_restart and self.just_restarted:
-                print(' | restarted')  # , file=self.fid)
+                print(' | restarted', end="")  # , file=self.fid)
 
             print('\n')  # , file=self.fid)
 
@@ -608,21 +571,9 @@ class ConicSolver:
         if self.beta >= 1:
             return True, counter_Ax
 
-        print("BACKTRACKING ###################")
 
         xy = self.iv.x - self.iv.y
 
-        # TODO: double check parenthesis
-
-        # is flatten even necessary?
-        print(self.iv.x.size)
-        print(self.iv.y.size)
-        # what is even this code below?
-        # remove until i remember why this exists
-        # val = max(abs(xy.flatten()) -
-        #            np.finfo(max(max(abs(xy.flatten())), # ERROR: empty sequence (xy null?)
-        #                max(abs(iv.x.flatten()), abs(iv.y.flatten()))))) # ERROR: incompatible shapes
-        # since x is 256x256
         self.xy_sq = self.square_norm(xy)
 
         if self.xy_sq == 0:
@@ -817,7 +768,7 @@ class IterationVariables:
         # output dimensions are a cell array
 
         self.f_x = float('inf')
-        self.C_x = float('inf')
+        self.C_x : float = float('inf')
         self.g_x = np.array([])
         self.g_Ax = np.array([])
 
@@ -871,7 +822,6 @@ class IterationVariables:
     # only use on first initialization
     def init_x(self, x):
         # tfocs uses way more checks
-        # print("set x to " + str(x))
         self.x = x
 
     def reset_yz(self):

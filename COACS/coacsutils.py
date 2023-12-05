@@ -112,42 +112,29 @@ def create_windows(pattern, mask, qbarrier, filter):
     # NOTE: the matlab version required to add machine epsilon to 0-values in factor
     # this is not necessary in numpy (hopefully)
 
+    # factor and basepenalty both look ok
     return factor, base_penalty
 
 
 
 def create_proxop(diffx, penalty, ourlinp):
-    # diffx is wrong
     diffxt = ourlinp(diffx, 2)
-
-    # im gonna have a stroke, it is the same as in matlab??
-    # peak around 32897 (in matlab)
-    # peaks around diffxt[32890:32900]
-    # specifically at diffxt[32896]
     level = -diffxt
-    maxdiff = np.max(diffxt)
-    maxsort = np.argsort(diffxt, axis=None)
-    flipped = np.flip(maxsort)
 
-    # mask = (penalty == 0) and (diffxt >= 0)
     mask = np.logical_and(penalty == 0, diffxt >= 0)
     level[mask] = 0
-    # ok i think level is correct now
 
-    # xlevel is off...
     xlevel = ourlinp(level, 1)
     proxop = zero_tolerant_quad(penalty, -diffxt - level, diffxt)
     return proxop, diffxt, level, xlevel
 
 def zero_tolerant_quad(p, p2, p3):
-    #
-    p = p.flatten() # is this necessary?
+    p = p.flatten()
     op = lambda origx, t=None, grad=0: smooth_quad_diag_matrix(p, p2, p3, origx, t, grad)
 
     def smooth_quad_diag_matrix(q, q2, q3, origx, t, grad):
         pm = max(q)
 
-        # size mismatch
         x = origx - q2
         q4 = q.copy()
         q4[q3 < 0] = pm
@@ -176,21 +163,14 @@ def diffpoisson(scale, y, basey, minval, absrefpoint, filter, qbarrier):
     y = y.flatten()
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', RuntimeWarning)
-        mask = ~(y < 0) & ~np.isnan(y)
+        mask = np.zeros_like(y)
+        mask = ~(y < 0 | np.isnan(y))
         rscale = 1.0 / scale
         filterrsq = 1.0 / (filter ** 2)
 
-        # remove nan values arising from 0*inf
         baseyscaled = basey / rscale
-        baseyscaled = np.nan_to_num(basey * rscale)
-
         absrefpointscaled = absrefpoint * rscale
-        absrefpointscaled = np.nan_to_num(absrefpoint * rscale)
 
-    # FIXME: it looks like absrefpoint is identical to basey
-
-    # f = lambda *args: diff_func(scale, rscale, mask, y, baseyscaled, minval, absrefpointscaled, filterrsq, qbarrier, args)
-    # not sure why it would be varargin
     f = lambda x, grad=0: diff_func(scale, rscale, mask, y, baseyscaled, minval, absrefpointscaled, filterrsq, qbarrier, x, grad)
 
     return f
@@ -231,10 +211,9 @@ def diff_func(scale, rscale, mask, y, base_y, minval, absrefpoint, filterrsq, qb
             + (refpoint_upperlim[mask] - refpoint[mask]) * (y[mask] / np.maximum(upperlim[mask] + base_y[mask], 1e-15))))
 
     lim2 = lim.copy()
-    lim2[1 - mask] = lim2[1 - mask] * 0.5
+    lim2[~mask] = lim2[~mask] * 0.5
 
-# FIXME
-    subs = x.flatten() < (x_base + lim2).flatten()
+    subs = x.flatten() < x_base + lim2.flatten()
     limfac = np.ones(mask.shape) / lim2
 
     vals[subs] = vals[subs] + (x[subs] ** 2) * limfac[subs]
@@ -243,16 +222,12 @@ def diff_func(scale, rscale, mask, y, base_y, minval, absrefpoint, filterrsq, qb
     subs2 = refpoint.flatten() < (x_base + lim2).flatten()
     vals[subs2] = vals[subs2] - (refpoint[subs2] ** 2) * limfac[subs2]
 
-    # subs3 = subs - subs2
-    # 35 ones
-    # i dont know
-    subs3 = np.logical_xor(subs, subs2)
-    # vals = vals + subs3.flatten() * (x_base.flatten() + lim2.flatten()) ** 2 + (-subs.flatten()) * limfac.flatten()
+    #subs3 = np.logical_xor(subs, subs2)
+    #subs3 = subs ^ subs
+    # actual minus
+    subs3 = 1 * subs - 1 * subs2
 
-    # not sure?
-    vals[:] = vals + (
-                subs3 * (x_base + lim2) ** 2 + (~subs * x + subs2 * (absrefpoint - base_y)) * 2 * (x_base + lim2) * limfac)
-
+    vals = vals + (1 * subs3 * (x_base + lim2) ** 2 + (-1 * subs * x + subs2 * (absrefpoint - base_y)) * 2 * (x_base + lim2)) * limfac
     v = np.sum(vals)
 
     if grad:

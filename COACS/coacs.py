@@ -5,9 +5,11 @@
 # Bachelor's degree project in Computer Science at Uppsala University
 # 2023
 import scipy.fftpack as sfft
+import scipy as sp
 import numpy as np
 import coacsutils as cu
 import sys
+import h5py
 sys.path.append('ConicSolver')
 # sys.path.append('~/exjobb/jackdaw/ConicSolver')
 import ConicSolver as cs
@@ -62,8 +64,6 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
     dims, side2, fullsize, pshape, cshape = cu.get_dims(pattern)
 
     original_pattern = pattern.copy()
-    # TODO: check dimensions of pattern
-    # pattern = pattern.reshape(fullsize, 1)
     pattern = pattern.reshape(fullsize, 1).flatten()
 
     solver = cs.ConicSolver()
@@ -73,12 +73,11 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
     solver.print_stop_criterion = True
     solver.print_every = 2500
     # no regress restart option
-    solver.restart = -10000000  # ?
+    solver.restart = -10000000
 
-    solver.autoRestart = 'fun' # ? double check this
+    solver.autoRestart = 'fun'
 
     mask = np.concatenate([np.reshape(support, pshape), np.zeros(np.reshape(support, pshape).shape)])
-    # TODO: check dimensions of mask
     mask = np.reshape(mask, (fullsize * 2, ))
 
     # purely ie zero mask in imaginary space
@@ -86,17 +85,12 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
     # no windowing used within linop for now
     our_linp = our_linp_flat
 
-    # global factor
-
-    # empty guess?
     if not init_guess:
-        init_guess = pattern
+        init_guess = pattern.copy()  # no aliasing
         # replace neg values with 0
         init_guess[init_guess < 0] = 0
 
-    #x = np.reshape(init_guess, (1, fullsize))
     x = init_guess.flatten()
-    # need to copy to not overwrite later
     x_prev = x.copy()
     y = x.copy()
     jval = 0
@@ -116,8 +110,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
         y = y * factor
         x = x * factor
 
-        # FIXME:
-        # base penalty not quite right
+        # looks ok
         penalty = base_penalty * nzpenalty[i]
 
         # acceleration scheme based on assumption of linear steps
@@ -190,18 +183,14 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             solver.beta = 0.1
             diffx = x.copy()
 
-            # is it even necessary to flatten?
-            # yes it is
             smoothop = cu.diffpoisson(factor, pattern, diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
             #smoothop = cu.diffpoisson(factor, pattern, diffx, bkg, diffx, filter, qbarrier[i])
+            # level is ridiculous
             proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
 
             # TODO: verify that solver attributes are correct
 
-            # TODO: fix affine function
-            # we get affine = {our_linp, xlevel}
-            # our_linp is a function, xlevel is an array, probably 65536x1
-            # this i believe represents the offset of the affine function
+            # TODO: fix affine function with respect to offset
 
             x, out = solver.solve(smoothop, our_linp, proxop, -level, affine_offset=xlevel)
 
@@ -319,45 +308,30 @@ def linop_helper(x, mode, dims, side, fullsize, pshape, cshape, filter, unshifte
         if dims == 3:
             x = np.fft.fftshift(x[0:side, 0:side, 0:side] + 1j * x[0:side, side:side * 2, 0:side])
         else:
-
-            # TODO: evaluate this. likely wrong
-            #x = np.fft.fftshift(x[side:side*2, :side] + 1j * x[:side, :side])
-            # Split the array into two parts and add the imaginary part
-            #part1 = x[:side, :side] + 1j * x[side:side*2, :side]
-            #part2 = x[side:side * 2, :side]
-            #part1 = x[:side, :side]
-            #part2 = 1j * x[side:side*2, :side]
-
-            #x = (part2 + part1)
-            #x = np.fft.fftshift(x)
-            #sliced_x = part1 + part2
-            # sliced_x = x[:side, :side] + 1j * x[side:side * 2, :side]
-
-            # different from matlab?
-
-            # FIXME FIXME FIXME
-            # TODO TODO TODO
-            # FIXME not correct
-            #x = np.fft.fftshift(sliced_x)
-    #x = np.fft.fftshift(x[side:side*2, :side] + 1j * x[:side, :side])
-            part1 = x[0:side, :]
-            part2 = x[side:2*side, :]
-            summed = part1 + part2
-            x = np.fft.fftshift(summed)
-
-            # FIXME: so x is apparently still fucked
+            to_shift = x[0:side, :] + 1j * x[side:2*side, :]
+            # This looks correct!
+            x = np.fft.fftshift(to_shift)
 
         x2 = x * np.conj(shifter)
+
+        # numerical error - probably cant do much about it
+        # Python and MATLAB use different backends for fft
         x = np.fft.fftn(x2) * np.conj(shifter)
 
         y = (side ** (-dims / 2)) * np.real(x.flatten()) * filter  # might not work if filter is an array
-    elif mode == 2:
-
-        x2 = np.zeros(pshape)  # redundant, probably
+    elif mode == 2:  # 23-11-22 verified for first iteration
+        x2 = np.zeros(pshape)
         x2 = np.real(x) * filter
         x2 = x2.reshape(pshape)
         x2 = x2 * shifter
+
+        # i think this is where it gets weird
+        #f2 = sp.io.loadmat('/home/noax/jackdaw/COACS/x2.mat')
         x2 = np.fft.ifftn(x2)
+        #asum = sum(sum(x2))
+        #num_diff = x2 - f2['x2'].transpose() # numerical differences between matlab and python: very small
+
+        # small numerical differences
         x2 = x2 * shifter
         x2 = np.fft.ifftshift(x2)
 
@@ -366,6 +340,8 @@ def linop_helper(x, mode, dims, side, fullsize, pshape, cshape, filter, unshifte
         imag_part = np.imag(x3)
         y = np.concatenate((real_part.ravel(), imag_part.ravel()))
         y = y.reshape((2 * fullsize, 1))
+
+        # tiny numerical error
         y = y.flatten()
 
     assert y is not None
