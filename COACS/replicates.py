@@ -61,12 +61,10 @@ for qq2 in range(numrep):
     banner = print("################## REPLICATE ", qq2)
     r = rs[qq2]
     tic = time.time()
-    # v, b = coacs.heal(r, mask, np.zeros((256, 256)), [], 'AT', len(qbarrier), qbarrier, nzpenalty, iters, tols, nowindow)
     v, b = coacs.heal(test_r, mask, np.zeros((256, 256)), [], 'AT', len(qbarrier), qbarrier, nzpenalty, iters, tols, nowindow)
 
     # TODO: check correctness below
     toc = time.time()
-    # vs[qq2 - 1] = v
     vs[qq2 - 1] = v
 
 rsold = rs
@@ -76,8 +74,6 @@ rs = np.empty(50)
 vs = np.empty(50)
 
 for qq2 in range(numrep):
-    # rs[qq2 - 1] = rsold[qq2 - 1]
-    # vs[qq2 - 1] = vsold[qq2 - 1]
     rs[qq2] = rsold[qq2]
     vs[qq2] = vsold[qq2]
 
