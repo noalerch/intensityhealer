@@ -4,13 +4,12 @@ import time
 import coacs
 import random
 from tempfile import TemporaryFile
-
-import scipy as sp
+from scipy import io
 
 # todo: refactor into functions and perhaps class
 # load complex reference matrix
 f = h5py.File('reference.mat', 'r')
-f2 = sp.io.loadmat('/home/noax/jackdaw/COACS/rpois.mat')
+f2 = io.loadmat('rpois.mat')
 vars = list(f.keys())
 reference = f['reference'][:]
 r3b = f['r3b'][:]
