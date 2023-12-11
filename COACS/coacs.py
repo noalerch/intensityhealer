@@ -155,8 +155,10 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             jval = jval + 1
 
         x_prev_inner = y.copy()
-        j_val_inner = -1  # ? might depend on what this is used for
-        solver.maxIter = np.ceil(iters[i] / iter_factor)
+        j_val_inner = -1
+
+
+        solver.max_iterations = int(np.ceil(iters[i] / iter_factor))
 
         # inner acceleration scheme
         # based on overall difference to previous pre-acceleration start
