@@ -98,7 +98,6 @@ class ConicSolver:
 
         self.iv.x = x0
 
-        # should work in our case
         self.L = self.L_0
 
         if np.isinf(self.iv.C_x):
@@ -123,9 +122,36 @@ class ConicSolver:
         self.iv.init_iterate_values()
 
         # call AT function to optimize
+        self.print_header("Auslender & Teboulle's single-projection method")
         self.auslender_teboulle()
 
         return self.iv.x, self.output
+
+    def print_header(self, alg_name=None):
+        if self.print_every:
+            if alg_name is None:
+                algorithm = self.alg  # Replace with your algorithm name
+            else:
+                algorithm = alg_name
+            print(algorithm)
+            print('Iter      Objective   |dx|/|x|    step', end='')
+            if self.count_ops:
+                print('       F     G     A     N     P', end='')
+            if self.error_function:
+                nBlanks = max(0, len(self.error_function) * 9 - 9)
+                print(f'      errors{" " * nBlanks}', end='')
+            if self.print_stop_criteria:
+                print('    stopping criteria', end='')
+            print()
+
+            print('----+----------------------------------', end='')
+            if self.count_ops:
+                print('+-------------------------------', end='')
+            if self.error_function:
+                print(f'+{"-" * (1 + len(self.error_function) * 9)}', end='')
+            if self.print_stop_criteria:
+                print(f'+{"-" * 19}', end='')
+            print()
 
     def auslender_teboulle(self):  # we pass iv as an argument to avoid using self.iv
         """Auslender & Teboulle's method
@@ -509,12 +535,13 @@ class ConicSolver:
         if self.save_history:
             f_size = self.output.f.size
             if f_size < self.n_iter and status == "":
-                csize = min(self.max_iterations,
-                            f_size + 1000)  # this is +1 compated to TFOCS due to matlab indexing. Does this matter?
+                csize = int(min(self.max_iterations,
+                            f_size + 1000))  # this is +1 compated to TFOCS due to matlab indexing. Does this matter?
 
                 # set values from end to czise to 0
 
                 # removed + 1 because of 0-indexing
+                # csize = 601
                 self.output.f = np.pad(self.output.f, (0, csize))  # TODO: verify
                 self.output.theta = np.pad(self.output.theta, (0, csize))  # TODO: verify
                 self.output.step_size = np.pad(self.output.step_size, (0, csize))  # TODO: verify
@@ -718,19 +745,9 @@ class ConicSolver:
         self.count[ndxs] += 1
         return func(val, mode, g)
 
-    # TODO
-    def linear_function(self):
-        pass
-
-    def test_method(self):
-        return "task tested successfully"
-
     # assumes mu > 0 & & ~isinf(Lexact) && Lexact > mu,
     # see tfocs_initialize.m (line 532-) and healernoninv.m
     def advance_theta(self, theta_old: float):
-        # TODO: N83 check? probably don't need to worry about this
-        # TODO: warning that AT may give wrong results with mu > 0 ?
-        # TODO: calculating this inside theta expensive. move outside?
         ratio = math.sqrt(self.mu / self.L_exact)
         theta_scale = (1 - ratio) / (1 + ratio)
         return min(1.0, theta_old * theta_scale)
