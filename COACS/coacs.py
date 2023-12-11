@@ -4,13 +4,14 @@
 # As well as the TFOCS library for MATLAB: http://cvxr.com/tfocs/
 # Bachelor's degree project in Computer Science at Uppsala University
 # 2023
-import scipy.fftpack as sfft
-import scipy as sp
+#import scipy.fftpack as sfft
+#import scipy as sp
 import numpy as np
 import coacsutils as cu
 import sys
 import h5py
-sys.path.append('ConicSolver')
+# sys.path.append('../ConicSolver')
+sys.path.append('../ConicSolver')
 # sys.path.append('~/exjobb/jackdaw/ConicSolver')
 import ConicSolver as cs
 
