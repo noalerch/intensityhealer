@@ -31,7 +31,7 @@ with h5py.File(args.filename, 'r') as f:
 if not args.f2:
     f2[:] = 1
 
-mask = (intensities >= (0 if args.mask else -1000)).astype(np.bool)
+mask = (intensities >= (0 if args.mask else -1000))
 intensities = np.clip(intensities, 0, 1000)
 
 # Create out support
@@ -68,7 +68,7 @@ for n in range(N):
     R.set_intensities(np.fft.fftshift(intensities[(n*256):((n+1)*256),:]  * np.reshape(f2,(256,256))))
     R.set_mask(np.fft.fftshift(mask[(n*256):((n+1)*256),:]))
     output = R.reconstruct_loop(M)
-    print "Done Reconstructions: %d/%d" %((n+1)*M, N*M)
+    print("Done Reconstructions: %d/%d" %((n+1)*M, N*M))
     with h5py.File(args.output + '/phasing.h5', 'a') as f:
         for k,v in output.iteritems():
             if isinstance(v,dict):

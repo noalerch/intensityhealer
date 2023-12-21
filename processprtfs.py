@@ -36,7 +36,7 @@ allsupers = np.zeros((M, 256, 256), dtype=np.complex128)
 for m in range(M):
     indices = np.argsort(rerror[(m*N):((m+1)*N)]) + m * N
     indices = indices[0:subsetcount]
-    print indices
+    print(indices)
     output_prtf = spimage.prtf(recons[indices], support[indices], enantio=True, translate=True, clearsupport=True, reference=reference)
     allsupers[m,:,:] = output_prtf['super_image'] / subsetcount
 

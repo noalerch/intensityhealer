@@ -191,13 +191,8 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             # level is ridiculous
             proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
 
-            # TODO: verify that solver attributes are correct
-
-            # TODO: fix affine function with respect to offset
-
             x, out = solver.solve(smoothop, our_linp, proxop, -level, affine_offset=xlevel)
 
-            # TODO: see if these copies are necessary
             xt_update = x.copy()
             x = our_linp(x, 1)
             xrt_norm = np.linalg.norm(xt_update - our_linp(x, 2))
