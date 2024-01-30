@@ -135,12 +135,21 @@ def zero_tolerant_quad(p, p2, p3):
     def smooth_quad_diag_matrix(q, q2, q3, origx, t, grad):
         pm = max(q)
 
+        # q2 seems to be arbitrarily small, equalling zero basically
         x = origx - q2
+
+        mask = q == 0
+
         q4 = q.copy()
         q4[q3 < 0] = pm
-        q[x < 0] = pm
-        mask = p == 0
-        q2[mask] = 0
+
+        q5 = q2.copy()
+        q5[mask] = 0
+
+        q6 = q.copy()
+
+        q6[x < 0] = pm
+        x[mask] = origx[mask]
 
         if t is None:
             g = q * x

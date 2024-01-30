@@ -2,6 +2,23 @@ import math
 import numpy as np
 
 
+
+# static functions
+# probably useless haha
+def dot(arr1, arr2):
+    if np.empty(arr1) or np.empty(arr2):
+        return 0
+    if len(arr1) != len(arr2):
+        raise Exception("Arrays must be of equal length!")
+    if arr1.ndim == 2 and arr2.ndim == 2 and arr1.shape[1] == 1 and \
+        arr2.shape[1] == 1 and np.isrealobj(arr1) and np.isrealobj(arr2):
+        return np.sum(arr1.T @ arr2)
+
+
+def square_norm(arr):
+    return np.dot(arr, arr)
+
+
 # TODO: affine_func, projector_func are optional
 class ConicSolver:
     def __init__(self): #, smooth_func, affine_func, projector_func, x0) -> None:
@@ -213,6 +230,9 @@ class ConicSolver:
 
 
                 # C_z correct, z slightly off
+                # z eventually becomes x which is why x gets wrong
+                # correct: z_old, step
+                # g_y is wrong! although not by much... maybe doesn't matter
                 self.iv.C_z, self.iv.z = self.apply_projector(z_old - step * self.iv.g_y, t=step, grad=1)
 
                 # A_z looks correct
@@ -241,12 +261,16 @@ class ConicSolver:
                 self.iv.g_Ax = np.array([])
                 self.iv.g_x = np.array([])
 
+                # x correct so far :)
+
+                # erroneously does not break properly
                 break_val, counter_Ax = self.backtrack(counter_Ax)
                 if break_val:
                     break
 
             # TODO: proper implementation of xy if we want to handle
             #       stopCrit 2
+            # FIXME: wrong value of x_old
             break_val, v_is_x, v_is_y, f_vy, status = self.iterate(x_old, A_x_old)
             if break_val:
                 break
@@ -292,13 +316,11 @@ class ConicSolver:
 
 
         if self.save_history:
-            self.output.f[n_iter] = self.f_v
+            self.output.f[n_iter - 1] = self.f_v
 
             # this just clearing an array?
             # self.output.f[n_iter:end] = [] # TODO fix this
 
-            # i think what we want is to delete (np.delete()) the elements
-            # of the array after n_iter
             self.output.f = self.output.f[:n_iter]  # only the first n_iter elements
             self.output.norm_grad = self.output.norm_grad[:n_iter]
             self.output.theta = self.output.theta[:n_iter]  # assuming numpy works this way
@@ -312,6 +334,10 @@ class ConicSolver:
 
                 if self.count_ops:
                     self.count = np.array([0, 0, 0, 0, 0])
+
+        # reset iteration count
+        self.n_iter = 0
+
 
     # based on tfocs_iterate.m script
     def iterate(self, x_old, A_x_old):
@@ -337,7 +363,8 @@ class ConicSolver:
         if self.stop_criterion == 2 and self.beta >= 1:
             xy = self.iv.x - self.iv.y
 
-            self.xy_sq = self.square_norm(xy)
+            # todo: check square norm
+            self.xy_sq = square_norm(xy)
 
         current_dual = None
 
@@ -352,7 +379,10 @@ class ConicSolver:
                 status = "Step size tolerance reached (||dx||=0)"
         elif self.stop_criterion == 1 and norm_dx < self.tolerance * max(norm_x, 1):
             status = "Step size tolerance reached"
-        elif self.stop_criterion == 2 and self.L * math.sqrt(xy_sq) < self.tolerance * max(norm_x, 1):
+            # norm_dx = 1.14e-16, tolerance = 8e-14, norm_x = 0.05...
+            # matlab iter 19: norm_dx = 5.26e+12, tol = 8e-14, norm_x = 5e+12
+            # matlab: norm_dx = 5.4e+18, tolerance = 8e-14, norm_x = 2.6e+19
+        elif self.stop_criterion == 2 and self.L * math.sqrt(self.xy_sq) < self.tolerance * max(norm_x, 1):
             status = "Step size tolerance reached"
         elif self.n_iter == self.max_iterations:
             status = "Iteration limit reached"
@@ -601,7 +631,14 @@ class ConicSolver:
 
         xy = self.iv.x - self.iv.y
 
-        self.xy_sq = self.square_norm(xy)
+        # self.xy_sq = self.square_norm(xy)
+        # to python from matlab:
+        # xy_sq = tfocs_normsq( max(abs(xy(:)) - eps(max(max(abs(xy(:))), max(abs(x(:)), abs(y(:))))), 0));
+        # FIXME: the argument to square_norm is correct, but the return value itself is wrong
+        
+        to_square = np.maximum(np.abs(xy) - np.spacing(np.maximum(np.max(np.abs(xy)), np.maximum(np.abs(self.iv.x), np.abs(self.iv.y)))), 0)
+        self.xy_sq = square_norm(to_square)
+
 
         if self.xy_sq == 0:
             self.L_local = float('inf')
@@ -609,19 +646,17 @@ class ConicSolver:
 
         # to handle numerical issues from the ratio being smaller than machine epsilon
         # force reset
-        if self.xy_sq / (self.square_norm(self.iv.x)) < np.finfo(float).eps:
+        # check if this is where it goes awry
+        # todo check square norm
+        if self.xy_sq / (square_norm(self.iv.x)) < np.finfo(float).eps:
             counter_Ax = float('inf')
             return True, counter_Ax
 
         if self.iv.g_Ax.size == 0 or np.isinf(self.iv.f_x):
-            # for projector and full solver test
-            # A_x :: 2-tuple of 256-vectors
-            # A_x in TFOCS:
-            # {(100,1) double, [-10]}
-            # error smooth is broken
-            # f_x supposed to be scalar
-            # A_x not supposed to be 0
-            # FIXME
+
+            # TODO:
+            # f_x is incorrect
+            # check if this is where it goes wrong
             self.iv.f_x, self.iv.g_Ax = self.apply_smooth(self.iv.A_x, grad=1)
 
         # in tfocs_backtrack it simply overwrites backtrack_simple
@@ -639,6 +674,13 @@ class ConicSolver:
 
         q_x = np.dot(xy, self.iv.g_y + 0.5 * self.L * xy)
 
+
+        # L_local_2 is dependent on the following vaeiables:
+        # L ( correct on first pass )
+        # iv.f_x : off by a bit
+        # iv.f_y : correct
+        # q_x : almost right
+        # xy_sq : off by like 3 orders of magnitude :O
         L_local_2 = self.L + 2 * max((self.iv.f_x - self.iv.f_y) - q_x + max(
             [np.finfo(self.iv.f_x).eps, np.finfo(self.iv.f_y).eps, np.finfo(q_x).eps,
              np.finfo(self.iv.f_x - self.iv.f_y).eps]), 0) / self.xy_sq
@@ -656,6 +698,7 @@ class ConicSolver:
             self.L_local = max(self.L, self.L_local)
 
         if self.L_local <= self.L or self.L_local >= self.L_exact:
+            # should get in here
             return True, counter_Ax  # analogous to break in matlab script?
 
         # if np.isinf(self.L_local):
@@ -752,9 +795,6 @@ class ConicSolver:
         theta_scale = (1 - ratio) / (1 + ratio)
         return min(1.0, theta_old * theta_scale)
 
-    def square_norm(self, arr):
-        return math.sqrt(np.dot(arr, arr))
-
 
 # TODO: finish output stuff
 class SolverOutput:
@@ -798,25 +838,6 @@ class IterationVariables:
         # self.output_dims = 0
         # default value
         self.output_dims = 256
-
-        ### size_ambig:
-        # sz :: double => if sz empty
-        # sz :: cell => false if valid function handle
-        # sz :: cell => true if empty
-        # for each element in sz, if at least one contained element ambiguous => true
-        # sz :: any other type => true
-
-        # if isempty( A_x ),
-        #    if identity_linop || zero_x0 && square_linop, # identity_linop??
-        #        A_x = x;
-        #    elseif ~zero_x0 || size_ambig( otp_dims ),  % Jan 2012: todo: give size_ambig the 'offset' information
-        #        A_x = apply_linear( x, 1 ); % celldisp( size(A_x) )
-        #    else
-        #        A_x = tfocs_zeros( otp_dims );
-        #    end
-        # end
-        # if np.empty(self.A_x): # i. e. ambiguous size in output dimensions
-        #    if identity_linop || zero_x0 && square_linop, # identity_linop??
 
     def init_iterate_values(self):
         # y values
