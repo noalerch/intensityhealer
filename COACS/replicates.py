@@ -62,6 +62,8 @@ for qq2 in range(numrep):
     tic = time.time()
     v, b = coacs.heal(test_r, mask, np.zeros((256, 256)), [], 'AT', len(qbarrier), qbarrier, nzpenalty, iters, tols, nowindow)
 
+    print("## Finished heal ##")
+
     # TODO: check correctness below
     toc = time.time()
     vs[qq2 - 1] = v

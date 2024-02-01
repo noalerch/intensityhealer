@@ -67,16 +67,6 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
     original_pattern = pattern.copy()
     pattern = pattern.reshape(fullsize, 1).flatten()
 
-    solver = cs.ConicSolver()
-    solver.alg = alg
-    solver.restart = 5e5
-    solver.count_ops = True
-    solver.print_stop_criterion = True
-    solver.print_every = 2500
-    # no regress restart option
-    solver.restart = -10000000
-
-    solver.autoRestart = 'fun'
 
     mask = np.concatenate([np.reshape(support, pshape), np.zeros(np.reshape(support, pshape).shape)])
     mask = np.reshape(mask, (fullsize * 2, ))
@@ -158,7 +148,8 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
         j_val_inner = -1
 
 
-        solver.max_iterations = int(np.ceil(iters[i] / iter_factor))
+        #solver.max_iterations = int(np.ceil(iters[i] / iter_factor))
+        max_iters = int(np.ceil(iters[i] / iter_factor))
 
         # inner acceleration scheme
         # based on overall difference to previous pre-acceleration start
@@ -178,12 +169,8 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
 
             x_prev_inner = y.copy()
             j_val_inner += 1
-            solver.max_iterations = np.ceil(solver.max_iterations * iter_factor)
-            solver.tolerance = tolerance[i]
-            solver.L_0 = 2 / qbarrier[i]
-            solver.L_exact = solver.L_0 * (96 * 96 * 96)**0.5
-            solver.alpha = 0.1
-            solver.beta = 0.1
+
+
             diffx = x.copy()
 
             smoothop = cu.diffpoisson(factor, pattern, diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
@@ -191,6 +178,23 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             # level is ridiculous
             proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
 
+            solver = cs.ConicSolver()
+            solver.alg = alg
+            solver.restart = 5e5
+            solver.count_ops = True
+            solver.print_stop_criterion = True
+            solver.print_every = 2500
+            # no regress restart option
+            solver.restart = -10000000
+
+            solver.autoRestart = 'fun'
+
+            solver.max_iterations = np.ceil(max_iters * iter_factor)
+            solver.tolerance = tolerance[i]
+            solver.L_0 = 2 / qbarrier[i]
+            solver.L_exact = solver.L_0 * (96 * 96 * 96)**0.5
+            solver.alpha = 0.1
+            solver.beta = 0.1
             x, out = solver.solve(smoothop, our_linp, proxop, -level, affine_offset=xlevel)
 
             xt_update = x.copy()

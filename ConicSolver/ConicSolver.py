@@ -336,7 +336,7 @@ class ConicSolver:
                     self.count = np.array([0, 0, 0, 0, 0])
 
         # reset iteration count
-        self.n_iter = 0
+        ##self.n_iter = 0
 
 
     # based on tfocs_iterate.m script
@@ -515,23 +515,23 @@ class ConicSolver:
                 bchar = '*'
 
             # TODO: format may be incorrect
-            to_print = "('%-4d| %+12.5e  %8.2e  %8.2e%c)" % (self.n_iter, self.f_v,
+            to_print = "(%-4d| %+12.5e  %8.2e  %8.2e%c)" % (self.n_iter, self.f_v,
                                                                  norm_dx / max(norm_x, 1), 1 / self.L, bchar)
 
-            print(to_print, end="")
+            print(to_print, end='')
 
             if self.count_ops:
-                print("|", end="")
+                print("|", end='')
 
                 # TODO: tfocs_count___ is array??
                 # print(f"%5d", self.count)  # , file=self.fid)
-                print(self.count, end="")  # , file=self.fid)
+                print(self.count, end='')  # , file=self.fid)
 
             if self.error_function is not None:
                 if self.count_ops:
-                    print(' ', end="")  # , file=self.fid)
+                    print(' ', end='')  # , file=self.fid)
 
-                print('|', end="")  # , file=self.fid)
+                print('|', end='')  # , file=self.fid)
                 # TODO: no errs since error function is null by default
                 #       thus, ignore for now
 
