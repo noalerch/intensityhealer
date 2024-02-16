@@ -42,7 +42,7 @@ class ConicSolver:
         self.print_every = 100
         self.max_min = 1
         self.beta = 0.5
-        self.alpha = 0.9
+        self.alpha = 1
         self.L_0 = 1
         self.L_exact = float('inf')
         self.L_local = 0  # changes with backtrack
@@ -52,7 +52,7 @@ class ConicSolver:
         self.alg = 'AT'
         self.restart = float('inf')
         self.print_stop_criteria = False
-        self.counter_reset = -50
+        self.counter_reset = 10 # hack
         self.cg_restart = float('inf')
         self.cg_type = 'pr'
         self.stop_criteria_always_use_x = False
@@ -94,7 +94,7 @@ class ConicSolver:
 
         self.cs = None
 
-    def solve(self, smooth_func, affine_func, projector_func, x0, affine_offset):
+    def solve(self, smooth_func, affine_func, projector_func, x0, affine_offset=0):
         """
 
         assumes Auslender-Teboulle algorithm for now
@@ -109,7 +109,7 @@ class ConicSolver:
         # iv = IterationVariables()
         # self.iv = IterationVariables()
         self.iv.output_dims = 256  # default value = 256
-        self.iv.init_x(x0)
+#        self.iv.init_x(x0)
         self.iv.z = x0  # suspicious
         self.iv.y = x0  # suspicious
 
@@ -140,6 +140,8 @@ class ConicSolver:
 
         # call AT function to optimize
         self.print_header("Auslender & Teboulle's single-projection method")
+
+        # waaaaaaaay too big at higher iterations
         self.auslender_teboulle()
 
         return self.iv.x, self.output
@@ -185,10 +187,10 @@ class ConicSolver:
         counter_Ax = 0
 
         while True:
-            x_old = self.iv.x
-            z_old = self.iv.z
-            A_x_old = self.iv.A_x
-            A_z_old = self.iv.A_z
+            x_old = self.iv.x  # this is wrong
+            z_old = self.iv.z  # same as x
+            A_x_old = self.iv.A_x  # almost correct, sign is flipped basically
+            A_z_old = self.iv.A_z  # same as A_x
 
             # backtracking loop
             L_old = self.L
@@ -197,7 +199,7 @@ class ConicSolver:
 
             while True:
                 # acceleration
-                self.theta = self.advance_theta(theta_old)  # use L args?
+                self.theta = self.advance_theta(theta_old, L_old)  # use L args?
 
                 # next iteration
                 if self.theta < 1:
@@ -226,17 +228,14 @@ class ConicSolver:
 
                     self.iv.g_y = self.apply_linear(self.iv.g_Ay, 2)
 
-                step: float = 1 / (self.theta * self.L)
+                step = 1.0 / (self.theta * self.L)
 
 
-                # C_z correct, z slightly off
-                # z eventually becomes x which is why x gets wrong
-                # correct: z_old, step
-                # g_y is wrong! although not by much... maybe doesn't matter
                 self.iv.C_z, self.iv.z = self.apply_projector(z_old - step * self.iv.g_y, t=step, grad=1)
 
-                # A_z looks correct
                 self.iv.A_z = self.apply_linear(self.iv.z, 1)
+
+                # correct so far
 
                 # new iteration
                 if self.theta == 1:
@@ -258,6 +257,7 @@ class ConicSolver:
 
                 self.iv.f_x = float('inf')
 
+                # clear gradients
                 self.iv.g_Ax = np.array([])
                 self.iv.g_x = np.array([])
 
@@ -429,6 +429,7 @@ class ConicSolver:
                 current_priority = self.iv.x
                 if self.saddle:
                     current_dual = self.iv.g_Ax
+                    # f_x is wrong
                 self.f_v = self.max_min * (self.iv.f_x + self.iv.C_x)
                 v_is_x = True
 
@@ -438,6 +439,8 @@ class ConicSolver:
                     self.iv.f_y, self.iv.g_Ay = self.apply_smooth(self.iv.A_y, grad=1)
                 elif comp_y[0]:
                     self.iv.f_y = self.apply_smooth(self.iv.A_y)
+                elif comp_y[2]:
+                    self.iv.C_y = self.apply_projector(self.iv.y)
 
                 current_priority = self.iv.y
                 if self.saddle:
@@ -465,7 +468,7 @@ class ConicSolver:
         # Data collection
         # fid
         will_print = self.fid and self.print_every and (status != ""
-                                                        or self.n_iter % self.print_every != 0
+                                                        or not self.n_iter % self.print_every
                                                         or (self.print_restart and self.just_restarted))
 
         if self.save_history or will_print:
@@ -515,7 +518,7 @@ class ConicSolver:
                 bchar = '*'
 
             # TODO: format may be incorrect
-            to_print = "(%-4d| %+12.5e  %8.2e  %8.2e%c)" % (self.n_iter, self.f_v,
+            to_print = "%-4d| %+12.5e  %8.2e  %8.2e%c" % (self.n_iter, self.f_v,
                                                                  norm_dx / max(norm_x, 1), 1 / self.L, bchar)
 
             print(to_print, end='')
@@ -581,27 +584,22 @@ class ConicSolver:
                     # uses : instad of 1 in matlab code. Please check!
                     self.output.norm_grad = np.pad(self.output.norm_grad, (0, csize))  # TODO: verify
 
-                # TODO: check indexing
-
         if status == "":
             do_break = False
         else:
             do_break = True
 
-        # tentative attempt att iterate lines 330--
-
         self.backtrack_steps = 0
         self.just_restarted = False
         do_auto_restart = False
         if self.restart < 0:
-            if self.auto_restart == 'gra':
-                do_auto_restart = np.dot(self.iv.g_Ay, self.iv.A_x - A_x_old)
+            if self.get_auto_restart('gra'):
+                do_auto_restart = np.dot(self.iv.g_Ay, self.iv.A_x - A_x_old) > 0
 
-            elif self.auto_restart == 'fun':
+            elif self.get_auto_restart('fun') or self.get_auto_restart('obj'):
                 do_auto_restart = self.max_min * self.f_v > self.max_min * self.f_v_old
 
-        if self.n_iter - self.restart_iter == abs(round(self.restart)) \
-                or do_auto_restart:
+        if self.n_iter - self.restart_iter == abs(round(self.restart)) or do_auto_restart:
             self.restart_iter = self.n_iter
             self.backtrack_simple = True
             self.theta = float('inf')
@@ -613,8 +611,12 @@ class ConicSolver:
             self.just_restarted = True
 
         # do_auto_restart
+        self.iv.C_y = float('inf')
 
         return do_break, v_is_x, v_is_y, f_vy, status
+
+    def get_auto_restart(self, string):
+        return str.find(self.auto_restart, string) > -1
 
     # based on Nettelblad's changed backtracking logic for TFOCS
     # handles numerical errors better
@@ -790,10 +792,11 @@ class ConicSolver:
 
     # assumes mu > 0 & & ~isinf(Lexact) && Lexact > mu,
     # see tfocs_initialize.m (line 532-) and healernoninv.m
-    def advance_theta(self, theta_old: float):
-        ratio = math.sqrt(self.mu / self.L_exact)
-        theta_scale = (1 - ratio) / (1 + ratio)
-        return min(1.0, theta_old * theta_scale)
+    def advance_theta(self, theta_old: float, L_old):
+        #ratio = math.sqrt(self.mu / self.L_exact)
+        #theta_scale = (1 - ratio) / (1 + ratio)
+        #return min(1.0, theta_old * theta_scale)
+        return 2 / (1 + math.sqrt(1 + 4 * (self.L / L_old) / (theta_old ** 2)))
 
 
 # TODO: finish output stuff
