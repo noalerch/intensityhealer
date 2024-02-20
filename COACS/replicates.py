@@ -17,10 +17,14 @@ r = f['r'][:]
 mask = f['mask'][:]
 reference = reference['real'] + reference['imag'] * 1j
 
+# load pattern
+pat = np.load('pattern.npy')
+pat2 = np.load('pattern2.npy')
+
 test_sampling = f2['r']
 test_r = test_sampling.transpose()
 
-rounds = 68
+rounds = 4
 # change to ndarrays?
 qbarrier = []
 nzpenalty = []
@@ -67,6 +71,9 @@ for qq2 in range(numrep):
     # TODO: check correctness below
     toc = time.time()
     vs[qq2 - 1] = v
+    print("Time to finish heal: (seconds)")
+    print(toc - tic)
+
 
 rsold = rs
 vsold = vs
@@ -74,13 +81,14 @@ vsold = vs
 rs = np.empty(50)
 vs = np.empty(50)
 
-for qq2 in range(numrep):
-    rs[qq2] = rsold[qq2]
-    vs[qq2] = vsold[qq2]
+#for qq2 in range(numrep):
+#    rs[qq2] = rsold[qq2]
+#    vs[qq2] = vsold[qq2]
 
 print(vs)
 
-np.save("pattern.npy", vs)
+np.save("pattern.npy", rsold)
+np.save("pattern2.npy", vsold)
 
 rsold = None
 vsold = None

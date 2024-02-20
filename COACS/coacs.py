@@ -156,7 +156,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             solver.restart = 5e5
             solver.count_ops = True
             solver.print_stop_criterion = True
-            solver.print_every = 100
+            solver.print_every = 0
             # no regress restart option
             solver.restart = -100000
 
@@ -208,8 +208,9 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             positive_factor = factor[pattern >= 0]
 
 #           # TODO: check diff
-            rchange = np.linalg.norm(np.diff(positive_pattern), ord=1) / np.linalg.norm(
+            rchange = np.linalg.norm(diffstep[pattern >= 0], ord=1) / np.linalg.norm(
                 positive_pattern * positive_factor, ord=1)
+            print(j_val_inner)
 
             if j_val_inner >= 0 and rchange < 1e-6 * out.n_iter and \
                 abs(smoothop(y - diffx) - smoothop(x_prev_inner - diffx) + proxop(our_linp(y - diffx + xlevel, 2)) \
@@ -222,9 +223,8 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
                 solver.max_iterations = np.ceil(solver.max_iterations / iter_factor)
 
     out_pattern = np.reshape(x, pshape)
-    details = out.copy()
 
-    return out_pattern, details # , factor
+    return out_pattern, out # , factor
 
 
 

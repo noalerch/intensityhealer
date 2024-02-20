@@ -754,9 +754,6 @@ class ConicSolver:
 
     def set_smooth(self, smooth_func, offset=0):
         if self.count_ops:
-            # code ugly and unreadable
-            #self.apply_smooth = lambda x, grad=0: self.solver_apply([i for i in range(0, 1 + grad)],
-            #                                                        smooth_func, [x + offset, grad])
             def apply_smooth(x, grad=0):
                 self.count[0] += 1
                 return smooth_func(x + offset, grad)
@@ -785,7 +782,6 @@ class ConicSolver:
             else:
                 return 0, x  # g := x
 
-    # deprecated
     def solver_apply(self, ndxs, func, val, mode, g=0):
         self.count[ndxs] += 1
         return func(val, mode, g)
