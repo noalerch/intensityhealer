@@ -24,7 +24,7 @@ pat2 = np.load('pattern2.npy')
 test_sampling = f2['r']
 test_r = test_sampling.transpose()
 
-rounds = 4
+rounds = 1
 # change to ndarrays?
 qbarrier = []
 nzpenalty = []
