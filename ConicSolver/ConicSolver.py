@@ -1,5 +1,6 @@
 import math
-import cupy as np
+import numpy as np
+import cupy as cp
 
 
 
@@ -817,16 +818,16 @@ class IterationVariables:
         # construct common initial values
 
         # x values
-        self.x = np.array([])  # this never seems to be updated?
-        self.A_x = np.array([])  # Non-ambiguous output dimensions: A_x = zeros
+        self.x = cp.array([])  # this never seems to be updated?
+        self.A_x = cp.array([])  # Non-ambiguous output dimensions: A_x = zeros
         # n_smooth = numel(smoothF)
         # assumtion 23-3-29: assume smooth function is singular, i.e. numel(smoothF) = 1
         # output dimensions are a cell array
 
         self.f_x = float('inf')
-        self.C_x : float = float('inf')
-        self.g_x = np.array([])
-        self.g_Ax = np.array([])
+        self.C_x = float('inf')
+        self.g_x = cp.array([])
+        self.g_Ax = cp.array([])
 
         # attempt 1
         # todo?

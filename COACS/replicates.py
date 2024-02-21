@@ -1,4 +1,5 @@
-import cupy as np
+import numpy as np
+import cupy as cp
 import h5py
 import time
 import coacs
@@ -16,9 +17,9 @@ r3b = f['r3b'][:]
 r_np = f['r'][:]
 
 # convert r_np to cupy array
-r = np.array(r_np)
+r = cp.asarray(r_np)
 
-mask = np.array(f['mask'][:])
+mask = cp.asarray(f['mask'][:])
 reference = reference['real'] + reference['imag'] * 1j
 
 # load pattern
@@ -26,7 +27,7 @@ pat = np.load('pattern.npy')
 pat2 = np.load('pattern2.npy')
 
 test_sampling = f2['r']
-test_r = np.array(test_sampling.transpose())
+test_r = cp.asarray(test_sampling.transpose())
 
 rounds = 1
 # change to ndarrays?
@@ -51,24 +52,24 @@ for i in range(rounds):
 
 numrep = 1
 # cell arrays in matlab
-rs = np.empty((numrep, 256, 256))
-vs = np.empty((numrep, 256, 256))
+rs = cp.empty((numrep, 256, 256))
+vs = cp.empty((numrep, 256, 256))
 
 random.seed(0)
 
 for qq2 in range(numrep):
     banner = print("################## PREP REPLICATE ", qq2)
-    r2 = np.random.poisson(r3b)
+    r2 = cp.array(np.random.poisson(r3b))
     print(type(r))
     print(type(r2))
-    r[np.where(r >= 0)] = r2[np.where(r >= 0)]
-    rs[qq2] = r
+    r[cp.where(r >= 0)] = r2[cp.where(r >= 0)]
+    rs[qq2] = cp.array(r)
 
 #### TODO: parallelize
 #### note: matlab uses parfor
 for qq2 in range(numrep):
     banner = print("################## REPLICATE ", qq2)
-    r = np.array(rs[qq2])
+    r = rs[qq2]
     tic = time.time()
     v, b = coacs.heal(test_r, mask, np.zeros((256, 256)), [], 'AT', len(qbarrier), qbarrier, nzpenalty, iters, tols, nowindow)
 

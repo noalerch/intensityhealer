@@ -1,6 +1,5 @@
-import cupy as np
-import warnings
-
+import numpy as np
+import cupy as cp
 
 def get_dims(pattern):
     side2 = pattern.shape[0]
@@ -55,35 +54,34 @@ def create_filter(filter, pshape, side2, fullsize, dims):
 
 def create_windows(pattern, mask):
     dims, side2, fullsize, pshape, cshape = get_dims(pattern)
-    our_filter = np.hanning(side2)  # periodic?
-    our_filter = np.fft.fftshift(our_filter)
+    our_filter = cp.hanning(side2)  # periodic?
+    our_filter = cp.fft.fftshift(our_filter)
     pure_factor = create_filter(our_filter, pshape, side2, fullsize, dims)
     pure_factor = pure_factor * pure_factor
 
     # 512x256
     mask_in_shape = mask.reshape(cshape)
-    base_penalty = None
 
     if dims == 3:
         mask_3d = mask_in_shape[:side2, :side2, :side2]
-        base_penalty = np.double((mask_3d > 0) + 1j * (mask_in_shape[:side2, side2:2 * side2, :side2] > 0))
+        base_penalty = cp.double((mask_3d > 0) + 1j * (mask_in_shape[:side2, side2:2 * side2, :side2] > 0))
     else:
         # mask_2d = mask_in_shape[:side2, :side2]
         # base_penalty = np.double((mask_2d > 0) + 1j * (mask_in_shape[:side2, side2:2 * side2] > 0))
         # mask_part1 = mask_in_shape[0:side2, 0:side2] > 0
         # mask_part2 = mask_in_shape[0:side2, 0:side2] > 0
         # base_penalty = np.where(mask_part1, 1.0, 0.0) + 1j * np.where(mask_part2, 1.0, 0.0)
-        base_penalty = np.zeros((side2, side2))  # , dtype=complex)
+        base_penalty = cp.zeros((side2, side2))  # , dtype=complex)
 
         mask1 = mask_in_shape[:side2, :side2] > 0
         # mask2 = mask_in_shape[:side2, side2:side2 + side2] > 0
 
-        base_penalty[mask1] = 1.0
+        base_penalty[cp.where(mask1)] = 1.0
         # base_penalty[mask2] = 1j
 
-    pure_reshaped = np.reshape(pure_factor, pshape)
-    base_penalty = np.fft.ifftshift(
-        np.fft.ifftn(np.fft.fftn(np.fft.fftshift(base_penalty)) * pure_reshaped))
+    pure_reshaped = cp.reshape(pure_factor, pshape)
+    base_penalty = cp.fft.ifftshift(
+        cp.fft.ifftn(cp.fft.fftn(cp.fft.fftshift(base_penalty)) * pure_reshaped))
 
     # using complex:
     # from here on, the results tend to differ from the matlab code after a few decimal places
@@ -91,7 +89,7 @@ def create_windows(pattern, mask):
     # one thing we MAY want to do is to force 1s from circa [101, 101] to [155, 155]
     # base_penalty[]
 
-    base_penalty = np.concatenate((np.real(base_penalty), np.imag(base_penalty)))
+    base_penalty = cp.concatenate((cp.real(base_penalty), cp.imag(base_penalty)))
     base_penalty = base_penalty.flatten(order='C')  # looks sort of ok with column major
     base_penalty[base_penalty < 1e-8] = 0
     base_penalty = 1.0 - base_penalty
@@ -104,10 +102,10 @@ def create_windows(pattern, mask):
     # base_penalty[base_penalty < 1e-3] = 0
     base_penalty[base_penalty < 1e-3] = 0
 
-    base_penalty = np.reshape(base_penalty, 2 * fullsize)
+    base_penalty = cp.reshape(base_penalty, 2 * fullsize)
 
-    our_filter = np.hanning(side2)
-    our_filter = np.fft.fftshift(our_filter)
+    our_filter = cp.hanning(side2)
+    our_filter = cp.fft.fftshift(our_filter)
 
     factor = create_filter(our_filter, pshape, side2, fullsize, dims)
     factor += 1e-3
@@ -138,10 +136,11 @@ def create_proxop(diffx, penalty, ourlinp):
 
 def zero_tolerant_quad(p, p2, p3):
     p = p.flatten()
+    # cp.asarray the input
     op = lambda origx, t=None, grad=0: smooth_quad_diag_matrix(p, p2, p3, origx, t, grad)
 
     def smooth_quad_diag_matrix(q, q2, q3, origx, t, grad):
-        pm = max(q)
+        pm = cp.max(q)
 
         # q2 seems to be arbitrarily small, equalling zero basically
         x = origx - q2
@@ -152,12 +151,12 @@ def zero_tolerant_quad(p, p2, p3):
         q2[mask] = 0
         if t is None:
             g = q * x
-            v = 0.5 * np.sum(g * x - q * q3 * q3)
+            v = 0.5 * cp.sum(g * x - q * q3 * q3)
         else:
             # prevx = x.copy()
             x = (1.0 / (t * q + 1)) * x
             g = x + q2
-            v = 0.5 * np.sum(q * x * x - q * q3 * q3)
+            v = 0.5 * cp.sum(q * x * x - q * q3 * q3)
 
         if grad:
             return v, g
@@ -178,14 +177,14 @@ def diffpoisson(scale, y, basey, minval, absrefpoint, filter, qbarrier):
 
     #    baseyscaled = basey / rscale
     #    absrefpointscaled = absrefpoint * rscale
-    mask = np.zeros_like(y)
-    mask = ~(y < 0 | np.isnan(y))
+    mask = cp.zeros_like(y)
+    mask = ~(y < 0 | cp.isnan(y))
     rscale = 1.0 / scale
     filterrsq = 1.0 / (filter ** 2)
     baseyscaled = basey * rscale
     absrefpointscaled = absrefpoint * rscale
 
-    lo = np.zeros_like(mask)
+    lo = cp.zeros_like(mask)
     hi = lo * 10
 
     f = lambda x, grad=0: diff_func(scale, rscale, mask, y, baseyscaled, minval, absrefpointscaled, filterrsq, qbarrier,
@@ -206,25 +205,25 @@ def diff_func(scale, rscale, mask, y, base_y, minval, absrefpoint, filterrsq, qb
     x_upperlim = x.copy()
     x_upperlim[subupper] = upperlim[subupper]
 
-    vals = np.zeros_like(x)
+    vals = cp.zeros_like(x)
 
     refpoint = absrefpoint - base_y
     refpoint_upperlim = refpoint.copy()
     refpoint_upperlim[refpoint < upperlim] = upperlim[refpoint < upperlim]
     absrefpointupperlim = refpoint_upperlim + base_y
 
-    vals[mask] = - (y[mask] * np.log((x_upperlim[mask] + base_y[mask]) / np.maximum(absrefpointupperlim[mask], 0.5e-9))
+    vals[mask] = cp.asarray(-(y[mask] * cp.log((x_upperlim[mask] + base_y[mask]) / cp.maximum(absrefpointupperlim[mask], 0.5e-9))
                     - 1 * (x[mask] - 1 * (absrefpoint[mask] - base_y[mask]))
-                    + (-(x_upperlim[mask] - x[mask]) * (y[mask] / np.maximum(upperlim[mask] + base_y[mask], 1e-15))
+                    + (-(x_upperlim[mask] - x[mask]) * (y[mask] / cp.maximum(upperlim[mask] + base_y[mask], 1e-15))
                        + (refpoint_upperlim[mask] - refpoint[mask]) * (
-                                   y[mask] / np.maximum(upperlim[mask] + base_y[mask], 1e-15))))
+                                   y[mask] / cp.maximum(upperlim[mask] + base_y[mask], 1e-15)))))
 
     lim2 = lim.copy()
     lim2[~mask] = lim2[~mask] * 0.5
 
     subs = x.flatten() < x_base + lim2.flatten()
-    limfac = np.ones(mask.shape)
-    limfac[mask] = limfac[mask] + (y[mask] / np.maximum(upperlim[mask] + base_y[mask], 1e-15))
+    limfac = cp.ones(mask.shape)
+    limfac[mask] = limfac[mask] + (y[mask] / cp.maximum(upperlim[mask] + base_y[mask], 1e-15))
 
     vals[subs] = vals[subs] + (x[subs] ** 2) * (1.0 / lim2[subs]) * limfac[subs]
 
@@ -240,14 +239,14 @@ def diff_func(scale, rscale, mask, y, base_y, minval, absrefpoint, filterrsq, qb
     vals = vals + (1 * subs3 * (x_base + lim2) ** 2 + (-1 * subs * x + subs2 * (absrefpoint - base_y)) * 2 * (
                 x_base + lim2) * (1.0 / lim2)) * limfac
 
-    v = np.sum(vals)
+    v = cp.sum(vals)
 
     if grad:
-        g = y[mask] / np.maximum(x_upperlim[mask] + base_y[mask], 1e-15) - 1
+        g = y[mask] / cp.maximum(x_upperlim[mask] + base_y[mask], 1e-15) - 1
         old_x = x.copy()
         x[:] = 0
         x[mask] = -g
-        if np.any(subs):
+        if cp.any(subs):
             x[subs] = x[subs] + 2 * (old_x[subs] - x_base[subs] - lim2[subs]) ** 1 * (1.0 / lim2[subs] ** 1) * limfac[
                 subs]
         x = x * rscale
