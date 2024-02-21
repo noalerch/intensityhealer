@@ -142,7 +142,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
 
                 proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
 
-                f_3 = lambda z: smoothop(z) + proxop(our_linp(z - xlevel, 2))
+                f_3 = lambda z: smoothop(cp.asarray(z)) + proxop(our_linp(z - xlevel, 2))
 
                 x = y + half_bounded_line_search(y - x_prev_inner, f_3)
             else:
@@ -164,7 +164,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             solver.restart = 5e5
             solver.count_ops = True
             solver.print_stop_criterion = True
-            solver.print_every = 1
+            solver.print_every = 100
             # no regress restart option
             solver.restart = -100000
 

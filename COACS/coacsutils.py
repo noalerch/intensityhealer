@@ -187,7 +187,7 @@ def diffpoisson(scale, y, basey, minval, absrefpoint, filter, qbarrier):
     lo = cp.zeros_like(mask)
     hi = lo * 10
 
-    f = lambda x, grad=0: diff_func(scale, rscale, mask, y, baseyscaled, minval, absrefpointscaled, filterrsq, qbarrier,
+    f = lambda x, grad=0: diff_func(scale, rscale, mask, y, baseyscaled, cp.asarray(minval), absrefpointscaled, filterrsq, qbarrier,
                                     x, grad)
 
     return f
