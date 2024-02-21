@@ -1,5 +1,5 @@
 import math
-import numpy as np
+import cupy as np
 
 
 
@@ -414,10 +414,10 @@ class ConicSolver:
             # unsure of these tfocs_iterate.m lines 60-1
             # TODO: we may run into errors and unexpected behavior
             #       between 0-1 ints, bools, and arrays of bools
-            comp_x = np.array([np.isinf(self.iv.f_x), need_dual * bool(self.iv.g_Ax.size), np.isinf(self.iv.C_x)])
-            comp_y = np.array([np.isinf(self.iv.f_y), need_dual * bool(self.iv.g_Ay.size), np.isinf(self.iv.C_y)])
+            comp_x = [np.isinf(self.iv.f_x), need_dual * bool(self.iv.g_Ax.size), np.isinf(self.iv.C_x)]
+            comp_y = [np.isinf(self.iv.f_y), need_dual * bool(self.iv.g_Ay.size), np.isinf(self.iv.C_y)]
 
-            if np.sum(comp_x) <= np.sum(comp_y) or self.stop_criteria_always_use_x:
+            if sum(comp_x) <= sum(comp_y) or self.stop_criteria_always_use_x:
 
                 if comp_x[1]:
                     self.iv.f_x, self.iv.g_Ax = self.apply_smooth(self.iv.A_x, grad=1)

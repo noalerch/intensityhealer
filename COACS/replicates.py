@@ -1,4 +1,4 @@
-import numpy as np
+import cupy as np
 import h5py
 import time
 import coacs
@@ -13,8 +13,12 @@ f2 = io.loadmat('pois2.mat')
 vars = list(f.keys())
 reference = f['reference'][:]
 r3b = f['r3b'][:]
-r = f['r'][:]
-mask = f['mask'][:]
+r_np = f['r'][:]
+
+# convert r_np to cupy array
+r = np.array(r_np)
+
+mask = np.array(f['mask'][:])
 reference = reference['real'] + reference['imag'] * 1j
 
 # load pattern
@@ -22,14 +26,14 @@ pat = np.load('pattern.npy')
 pat2 = np.load('pattern2.npy')
 
 test_sampling = f2['r']
-test_r = test_sampling.transpose()
+test_r = np.array(test_sampling.transpose())
 
 rounds = 1
 # change to ndarrays?
-qbarrier = []
-nzpenalty = []
-iters = []
-tols = []
+qbarrier = np.empty(rounds)
+nzpenalty = np.empty(rounds)
+iters = np.empty(rounds)
+tols = np.empty(rounds)
 
 # todo: review this line
 if 'nowindow' not in locals() and 'nowindow' not in globals():
@@ -38,12 +42,12 @@ if 'nowindow' not in locals() and 'nowindow' not in globals():
 # prepare settings for the different continuation levels
 for i in range(rounds):
     val = 2 ** (3 - i)
-    qbarrier.append(val)
+    qbarrier[i] = val
     nzpval = 1e4 / val
-    nzpenalty.append(nzpval)
-    iters.append(6e2)
+    nzpenalty[i] = nzpval
+    iters[i] = 6e2
     tolval = val * 1e-14
-    tols.append(tolval)
+    tols[i] = tolval
 
 numrep = 1
 # cell arrays in matlab
@@ -55,14 +59,16 @@ random.seed(0)
 for qq2 in range(numrep):
     banner = print("################## PREP REPLICATE ", qq2)
     r2 = np.random.poisson(r3b)
-    r[r >= 0] = r2[r >= 0]
+    print(type(r))
+    print(type(r2))
+    r[np.where(r >= 0)] = r2[np.where(r >= 0)]
     rs[qq2] = r
 
 #### TODO: parallelize
 #### note: matlab uses parfor
 for qq2 in range(numrep):
     banner = print("################## REPLICATE ", qq2)
-    r = rs[qq2]
+    r = np.array(rs[qq2])
     tic = time.time()
     v, b = coacs.heal(test_r, mask, np.zeros((256, 256)), [], 'AT', len(qbarrier), qbarrier, nzpenalty, iters, tols, nowindow)
 

@@ -6,7 +6,7 @@
 # 2023
 #import scipy.fftpack as sfft
 #import scipy as sp
-import numpy as np
+import cupy as np
 import coacsutils as cu
 import sys
 import h5py
@@ -58,6 +58,8 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
     qbarrier = np.ones(num_rounds) * qbarrier
 
     dims, side2, fullsize, pshape, cshape = cu.get_dims(pattern)
+    pshape = [int(i) for i in pshape]
+    cshape = [int(i) for i in cshape]
 
     original_pattern = pattern.copy()
     pattern = pattern.reshape(fullsize, 1).flatten()
@@ -83,7 +85,9 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
     our_linp = our_linp_flat
 
     if not init_guess:
-        init_guess = pattern.copy() * factor # no aliasing
+        print(type(pattern))
+        print(type(factor))
+        init_guess = pattern * factor # no aliasing
         # replace neg values with 0
         init_guess[init_guess < 0] = 0
 
@@ -156,7 +160,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             solver.restart = 5e5
             solver.count_ops = True
             solver.print_stop_criterion = True
-            solver.print_every = 0
+            solver.print_every = 1
             # no regress restart option
             solver.restart = -100000
 

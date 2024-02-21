@@ -1,4 +1,4 @@
-import numpy as np
+import cupy as np
 import warnings
 
 
@@ -17,18 +17,22 @@ def get_dims(pattern):
     else:
         raise ValueError('Unknown dimensionality')
 
+    pshape = [int(x) for x in pshape]
+    cshape = [int(x) for x in cshape]
+
     return dims, side2, fullsize, pshape, cshape
 
 
-def create_filter(filter, pshape: np.ndarray, side2, fullsize, dims):
+def create_filter(filter, pshape, side2, fullsize, dims):
+    #shape1 = [int(x) for x in pshape]
     shape1 = pshape.copy()
     shape1[1] = 1  # opposite of matlab due to row-major matrices in numpy
 
     filter1 = np.tile(filter, shape1)
 
-    shapeb = pshape.copy()
-    shapeb[:] = 1
-    shapeb[0] = 1
+    shapeb = [1 for _ in range(len(pshape))]
+    #shapeb[:] = 1
+    shapeb[0] = 1 # duh
     shapeb[1] = pshape[1]
 
     # filter2 = np.ones(shapeb) * filter # is this right?
