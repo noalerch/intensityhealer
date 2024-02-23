@@ -277,7 +277,7 @@ def linop_helper(x, mode, dims, side, fullsize, pshape, cshape, filter, unshifte
         # looks sorta ok
         x = cp.fft.fftn(x2) * np.conj(shifter)
 
-        y = (side ** (-dims / 2)) * cp.real(x) * filter  # might not work if filter is an array
+        y = (side ** (-dims / 2)) * cp.real(x.flatten()) * filter  # might not work if filter is an array
     elif mode == 2:  # 23-11-22 verified for first iteration
         x2 = cp.zeros(pshape)
         x2 = cp.real(x) * filter
