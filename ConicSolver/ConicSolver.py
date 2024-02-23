@@ -188,10 +188,10 @@ class ConicSolver:
         counter_Ax = 0
 
         while True:
-            x_old = self.iv.x  # this is wrong
-            z_old = self.iv.z  # same as x
-            A_x_old = self.iv.A_x  # almost correct, sign is flipped basically
-            A_z_old = self.iv.A_z  # same as A_x
+            x_old = self.iv.x.copy()
+            z_old = self.iv.z.copy()
+            A_x_old = self.iv.A_x.copy()
+            A_z_old = self.iv.A_z.copy()
 
             # backtracking loop
             L_old = self.L
@@ -219,18 +219,18 @@ class ConicSolver:
 
                     # UPDATE: moved into here
                     self.iv.f_y = float('inf')
-                    self.iv.g_Ay = np.array([])
-                    self.iv.g_y = np.array([])
+                    self.iv.g_Ay = cp.array([])
+                    self.iv.g_y = cp.array([])
 
                 if self.iv.g_y.size == 0:
                     # initialize g_Ay
                     if self.iv.g_Ay.size == 0:
+                        # g_Ay wrong sign
                         self.iv.f_y, self.iv.g_Ay = self.apply_smooth(self.iv.A_y, grad=1)
 
                     self.iv.g_y = self.apply_linear(self.iv.g_Ay, 2)
 
                 step = 1.0 / (self.theta * self.L)
-
 
                 self.iv.C_z, self.iv.z = self.apply_projector(z_old - step * self.iv.g_y, t=step, grad=1)
 
@@ -238,10 +238,11 @@ class ConicSolver:
 
                 # correct so far
 
+
                 # new iteration
                 if self.theta == 1:
-                    self.iv.x = self.iv.z
-                    self.iv.A_x = self.iv.A_z
+                    self.iv.x = self.iv.z.copy()
+                    self.iv.A_x = self.iv.A_z.copy()
                     self.iv.C_x = self.iv.C_z
 
                 else:
@@ -259,8 +260,8 @@ class ConicSolver:
                 self.iv.f_x = float('inf')
 
                 # clear gradients
-                self.iv.g_Ax = np.array([])
-                self.iv.g_x = np.array([])
+                self.iv.g_Ax = cp.array([])
+                self.iv.g_x = cp.array([])
 
                 # x correct so far :)
 
@@ -427,10 +428,10 @@ class ConicSolver:
                 if comp_x[2]:
                     self.iv.C_x = self.apply_projector(self.iv.x)
 
-                current_priority = self.iv.x
-                if self.saddle:
-                    current_dual = self.iv.g_Ax
-                    # f_x is wrong
+                #current_priority = self.iv.x
+                #if self.saddle:
+                #    current_dual = self.iv.g_Ax
+                #    # f_x is wrong
                 self.f_v = self.max_min * (self.iv.f_x + self.iv.C_x)
                 v_is_x = True
 
@@ -447,6 +448,7 @@ class ConicSolver:
                 if self.saddle:
                     current_dual = self.iv.g_Ay
 
+                # f_y is wrong
                 self.f_v = self.max_min * (self.iv.f_y + self.iv.C_y)
                 v_is_y = True
 
@@ -461,7 +463,7 @@ class ConicSolver:
 
         # TODO: finish this part
         #       i cannot remember why this TODO exists. remove?
-        #    comp_x = [np.isinf(f_x), need_dual]
+
 
         # TODO: apply stop_criterion 3 if it has been requested
         #       not yet implemented since COACS uses default stop_crit
@@ -525,11 +527,12 @@ class ConicSolver:
             print(to_print, end='')
 
             if self.count_ops:
-                print("|", end='')
+                print("|   ", end='')
 
                 # TODO: tfocs_count___ is array??
                 # print(f"%5d", self.count)  # , file=self.fid)
-                print(self.count, end='')  # , file=self.fid)
+                for s in self.count:
+                    print(' ', f"{s : <4}", end='')
 
             if self.error_function is not None:
                 if self.count_ops:
@@ -542,7 +545,7 @@ class ConicSolver:
             # display number used to determine stopping
             # in COACS this should always be 1
             if self.print_stop_criteria:
-                if self.stop_criterion == 1:
+                if self.stop_criterion:
                     if norm_dx is not None and norm_x is not None:
                         stop_resid = norm_dx / max(norm_x, 1)
 
@@ -563,7 +566,7 @@ class ConicSolver:
             if self.print_restart and self.just_restarted:
                 print(' | restarted', end="")  # , file=self.fid)
 
-            print('\n')  # , file=self.fid)
+            print('')  # , file=self.fid)
 
         # extending arrays if needed
         if self.save_history:
@@ -841,21 +844,21 @@ class IterationVariables:
 
     def init_iterate_values(self):
         # y values
-        self.y = self.x
-        self.A_y = self.A_x
+        self.y = self.x.copy()
+        self.A_y = self.A_x.copy()
         self.C_y = float('inf')
         self.f_y = self.f_x
-        self.g_y = self.g_x
-        self.g_Ay = self.g_Ax
+        self.g_y = self.g_x.copy()
+        self.g_Ay = self.g_Ax.copy()
         # norm_x?
 
         # z values
-        self.z = self.x
-        self.A_z = self.A_x
+        self.z = self.x.copy()
+        self.A_z = self.A_x.copy()
         self.C_z = self.C_x
         self.f_z = self.f_x
-        self.g_z = self.g_x
-        self.g_Az = self.g_Ax
+        self.g_z = self.g_x.copy()
+        self.g_Az = self.g_Ax.copy()
 
     # only use on first initialization
     def init_x(self, x):
@@ -863,16 +866,16 @@ class IterationVariables:
         self.x = x
 
     def reset_yz(self):
-        self.y = self.x
-        self.A_y = self.A_x
+        self.y = self.x.copy()
+        self.A_y = self.A_x.copy()
         self.f_y = self.f_x
-        self.g_y = self.g_x
-        self.g_Ay = self.g_Ax
+        self.g_y = self.g_x.copy()
+        self.g_Ay = self.g_Ax.copy()
         self.C_y = self.C_x
 
-        self.z = self.x
-        self.A_z = self.A_x
+        self.z = self.x.copy()
+        self.A_z = self.A_x.copy()
         self.f_z = self.f_x
-        self.g_z = self.g_x
-        self.g_Az = self.g_Ax
+        self.g_z = self.g_x.copy()
+        self.g_Az = self.g_Ax.copy()
         self.C_z = self.C_x

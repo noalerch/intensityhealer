@@ -152,10 +152,11 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             j_val_inner += 1
 
 
+            # is this correct?
             diffx = cp.asarray(x)
 
             smoothop = cu.diffpoisson(factor, pattern, diffx.flatten(), cp.array(bkg.flatten()), diffx, filter, qbarrier[i])
-            #smoothop = cu.diffpoisson(factor, pattern, diffx, bkg, diffx, filter, qbarrier[i])
+
 
             proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
 
@@ -177,7 +178,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             #solver.alpha = 0.1
             solver.beta = 1
 
-            # x is wrong
+            # x shockingly close after first iteration
             x, out = solver.solve(smoothop, our_linp, proxop, -level, affine_offset=xlevel)
 
             xt_update = x.copy()
@@ -191,7 +192,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
 
             # flatten necessary?
             f_4 = lambda x: smoothop(x + x_update.flatten()) + proxop(our_linp(x + x_step, 2))
-            y += half_bounded_line_search(x_update, f_4)
+            y += half_bounded_line_search(x_update, f_4)  # pretty good after 1 iter
 
             level_x_diff = np.linalg.norm(x_prev_inner - y)
 
@@ -215,7 +216,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             positive_pattern = pattern[pattern >= 0]
             positive_factor = factor[pattern >= 0]
 
-#           # TODO: check diff
+            # rchange sliiightly off but maybe is ok
             rchange = np.linalg.norm(diffstep[pattern >= 0], ord=1) / np.linalg.norm(
                 positive_pattern * positive_factor, ord=1)
             print(j_val_inner)
@@ -276,7 +277,7 @@ def linop_helper(x, mode, dims, side, fullsize, pshape, cshape, filter, unshifte
         # looks sorta ok
         x = cp.fft.fftn(x2) * np.conj(shifter)
 
-        y = (side ** (-dims / 2)) * np.real(x.flatten()) * filter  # might not work if filter is an array
+        y = (side ** (-dims / 2)) * cp.real(x) * filter  # might not work if filter is an array
     elif mode == 2:  # 23-11-22 verified for first iteration
         x2 = cp.zeros(pshape)
         x2 = cp.real(x) * filter

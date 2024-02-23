@@ -126,6 +126,7 @@ def create_proxop(diffx, penalty, ourlinp):
 
     level = -diffxt
 
+    #candidate for cp.where
     mask = np.where(penalty == 0)
     level[mask] = 0
 
