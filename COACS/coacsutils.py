@@ -104,8 +104,8 @@ def create_windows(pattern, mask):
 
     base_penalty = cp.reshape(base_penalty, 2 * fullsize)
 
-    our_filter = cp.hanning(side2)
-    our_filter = cp.fft.fftshift(our_filter)
+    #our_filter = cp.hanning(side2)
+    #our_filter = cp.fft.fftshift(our_filter)
 
     factor = create_filter(our_filter, pshape, side2, fullsize, dims)
     factor += 1e-3
@@ -232,8 +232,6 @@ def diff_func(scale, rscale, mask, y, base_y, minval, absrefpoint, filterrsq, qb
     subs2 = refpoint.flatten() < (x_base + lim2).flatten()
     vals[subs2] = vals[subs2] - (refpoint[subs2] ** 2) * (1.0 / lim2[subs2] * limfac[subs2])
 
-    # subs3 = np.logical_xor(subs, subs2)
-    # subs3 = subs ^ subs
     # actual minus
     subs3 = 1 * subs - 1 * subs2
 

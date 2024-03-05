@@ -17,7 +17,7 @@ r3b = f['r3b'][:]
 r_np = f['r'][:]
 
 # convert r_np to cupy array
-r = cp.asarray(r_np)
+r = cp.array(r_np)
 
 mask = cp.asarray(f['mask'][:])
 reference = reference['real'] + reference['imag'] * 1j
@@ -90,7 +90,7 @@ vs = np.empty(50)
 #    rs[qq2] = rsold[qq2]
 #    vs[qq2] = vsold[qq2]
 
-print(vs)
+#print(vs)
 
 np.save("pattern.npy", rsold)
 np.save("pattern2.npy", vsold)

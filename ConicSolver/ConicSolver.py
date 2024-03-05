@@ -143,7 +143,7 @@ class ConicSolver:
         self.print_header("Auslender & Teboulle's single-projection method")
 
         # waaaaaaaay too big at higher iterations
-        self.auslender_teboulle()
+        self.auslander_teboulle()
 
         return self.iv.x, self.output
 
@@ -173,7 +173,7 @@ class ConicSolver:
                 print(f'+{"-" * 19}', end='')
             print()
 
-    def auslender_teboulle(self):  # we pass iv as an argument to avoid using self.iv
+    def auslander_teboulle(self):  # we pass iv as an argument to avoid using self.iv
         """Auslender & Teboulle's method
         args:
             smooth_func: function for smooth
@@ -226,6 +226,7 @@ class ConicSolver:
                     # initialize g_Ay
                     if self.iv.g_Ay.size == 0:
                         # g_Ay wrong sign
+                        # f_y is a bit off after second iter
                         self.iv.f_y, self.iv.g_Ay = self.apply_smooth(self.iv.A_y, grad=1)
 
                     self.iv.g_y = self.apply_linear(self.iv.g_Ay, 2)
@@ -416,8 +417,9 @@ class ConicSolver:
             # unsure of these tfocs_iterate.m lines 60-1
             # TODO: we may run into errors and unexpected behavior
             #       between 0-1 ints, bools, and arrays of bools
-            comp_x = [np.isinf(self.iv.f_x), need_dual * bool(self.iv.g_Ax.size), np.isinf(self.iv.C_x)]
-            comp_y = [np.isinf(self.iv.f_y), need_dual * bool(self.iv.g_Ay.size), np.isinf(self.iv.C_y)]
+            # cp or np?
+            comp_x = [cp.isinf(self.iv.f_x), need_dual * bool(self.iv.g_Ax.size), cp.isinf(self.iv.C_x)]
+            comp_y = [cp.isinf(self.iv.f_y), need_dual * bool(self.iv.g_Ay.size), cp.isinf(self.iv.C_y)]
 
             if sum(comp_x) <= sum(comp_y) or self.stop_criteria_always_use_x:
 
