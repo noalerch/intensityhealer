@@ -141,7 +141,7 @@ def zero_tolerant_quad(p, p2, p3):
     op = lambda origx, t=None, grad=0: smooth_quad_diag_matrix(p, p2, p3, origx, t, grad)
 
     def smooth_quad_diag_matrix(q, q2, q3, origx, t, grad):
-        pm = cp.max(q)
+        #pm = cp.max(q)
 
         # q2 seems to be arbitrarily small, equalling zero basically
         x = origx - q2
@@ -195,7 +195,7 @@ def diffpoisson(scale, y, basey, minval, absrefpoint, filter, qbarrier):
 
 
 def diff_func(scale, rscale, mask, y, base_y, minval, absrefpoint, filterrsq, qbarrier, x, grad=False, ret_vals=False):
-    # NOTE: global x2 = x?
+    # base_y wrong?
 
     x = x * rscale
     lim = qbarrier * filterrsq * (rscale * rscale)
@@ -234,9 +234,9 @@ def diff_func(scale, rscale, mask, y, base_y, minval, absrefpoint, filterrsq, qb
 
     # actual minus
     subs3 = 1 * subs - 1 * subs2
+    m = (1 * subs3 * (x_base + lim2)**2 + (-1 * subs * x + subs2 * (absrefpoint - base_y)) * 2) * (x_base + lim2) * (1 / lim2 * limfac)
+    vals = vals + m
 
-    vals = vals + (1 * subs3 * (x_base + lim2) ** 2 + (-1 * subs * x + subs2 * (absrefpoint - base_y)) * 2 * (
-                x_base + lim2) * (1.0 / lim2)) * limfac
 
     v = cp.sum(vals)
 

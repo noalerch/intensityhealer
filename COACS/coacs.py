@@ -115,7 +115,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             if jval > 0:
                 diffx = x + (x - x_prev) * (qbarrier[i] / qbarrier[i - 1])
                 smoothop = cu.diffpoisson(factor, pattern, diffx.flatten(), bkg.flatten(), diffx, filter, qbarrier[i])
-                proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
+                op, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
 
                 f = lambda z: smoothop(z + x - diffx) + proxop(our_linp(z + x - diffx, 2))
                 y = x + half_bounded_line_search(x - x_prev, f)
@@ -153,7 +153,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
 
 
             # is this correct?
-            diffx = cp.asarray(x)
+            diffx = cp.copy(x)
 
             smoothop = cu.diffpoisson(factor, pattern, diffx.flatten(), cp.array(bkg.flatten()), diffx, filter, qbarrier[i])
 
@@ -171,7 +171,8 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
 
             solver.autoRestart = 'fun, gra'
 
-            solver.max_iterations = np.ceil(max_iters * iter_factor)
+            max_iters = np.ceil(max_iters * iter_factor)
+            solver.max_iterations = max_iters
             solver.tolerance = tolerance[i]
             solver.L_0 = 2 / qbarrier[i]
             solver.L_exact = solver.L_0

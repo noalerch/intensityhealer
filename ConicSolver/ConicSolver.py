@@ -131,7 +131,7 @@ class ConicSolver:
         else:
             self.iv.A_x = np.zeros((self.output_dims, self.output_dims))
 
-        # circa line 521 in tfocs_init
+        # circa line 521 in tfocs_init : wrong due to diffpoisson being weird with base_y
         self.iv.f_x, self.iv.g_Ax = self.apply_smooth(self.iv.A_x, grad=1)
         if np.isinf(self.iv.f_x):
             raise Exception("The initial point lies outside of the domain of the smooth function.")
@@ -142,7 +142,6 @@ class ConicSolver:
         # call AT function to optimize
         self.print_header("Auslender & Teboulle's single-projection method")
 
-        # waaaaaaaay too big at higher iterations
         self.auslander_teboulle()
 
         return self.iv.x, self.output
@@ -229,7 +228,7 @@ class ConicSolver:
                         # f_y is a bit off after second iter
                         self.iv.f_y, self.iv.g_Ay = self.apply_smooth(self.iv.A_y, grad=1)
 
-                    self.iv.g_y = self.apply_linear(self.iv.g_Ay, 2)
+                    self.iv.g_y = self.apply_linear(self.iv.g_Ay, 2) # g_Ay wrong?
 
                 step = 1.0 / (self.theta * self.L)
 
@@ -264,9 +263,9 @@ class ConicSolver:
                 self.iv.g_Ax = cp.array([])
                 self.iv.g_x = cp.array([])
 
-                # x correct so far :)
+                #
 
-                # erroneously does not break properly
+                #
                 break_val, counter_Ax = self.backtrack(counter_Ax)
                 if break_val:
                     break

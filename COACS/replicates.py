@@ -29,7 +29,7 @@ pat2 = np.load('pattern2.npy')
 test_sampling = f2['r']
 test_r = cp.asarray(test_sampling.transpose())
 
-rounds = 1
+rounds = 5
 # change to ndarrays?
 qbarrier = np.empty(rounds)
 nzpenalty = np.empty(rounds)
