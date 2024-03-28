@@ -50,7 +50,7 @@ for i in range(rounds):
     tolval = val * 1e-14
     tols[i] = tolval
 
-numrep = 1
+numrep = 5
 # cell arrays in matlab
 rs = cp.empty((numrep, 256, 256))
 vs = cp.empty((numrep, 256, 256))
@@ -92,8 +92,8 @@ vs = np.empty(50)
 
 #print(vs)
 
-np.save("pattern.npy", rsold)
-np.save("pattern2.npy", vsold)
+np.save("img/patternrs3.npy", rsold)
+np.save("img/patternvs3.npy", vsold)
 
 rsold = None
 vsold = None

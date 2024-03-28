@@ -26,7 +26,7 @@ with h5py.File(args.ref, 'r') as reff:
     reference = reff['reference'][:]
     reference = np.fft.ifftshift(np.fft.fft2(np.fft.fft2(np.fft.fftshift(reference['real'] + 1j * reference['imag'])) * np.sqrt(f2)))
 
-# Loop over 50 original images
+# Loop over 50 original img
 M = 50
 N = 100
 subsetcount = 10
