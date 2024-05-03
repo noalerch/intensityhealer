@@ -375,7 +375,7 @@ class ConicSolver:
         # could perhaps use match-case which was introduced in Python 3.10
         # avoiding this due to compatibility issues
         if np.isnan(self.iv.f_y):
-            status = "NaN found -- aborting"
+            status = "NaN found -- aborting"  # x_old ridiculously big, with exponents at 289
         elif self.stop_criterion == 1 and norm_dx == 0:
             if self.n_iter > 1:
                 status = "Step size tolerance reached (||dx||=0)"
@@ -521,7 +521,6 @@ class ConicSolver:
             else:
                 bchar = '*'
 
-            # TODO: format may be incorrect
             to_print = "%-4d| %+12.5e  %8.2e  %8.2e%c" % (self.n_iter, self.f_v,
                                                                  norm_dx / max(norm_x, 1), 1 / self.L, bchar)
 
@@ -530,7 +529,6 @@ class ConicSolver:
             if self.count_ops:
                 print("|   ", end='')
 
-                # TODO: tfocs_count___ is array??
                 # print(f"%5d", self.count)  # , file=self.fid)
                 for s in self.count:
                     print(' ', f"{s : <4}", end='')
@@ -580,14 +578,14 @@ class ConicSolver:
 
                 # removed + 1 because of 0-indexing
                 # csize = 601
-                self.output.f = np.pad(self.output.f, (0, csize))  # TODO: verify
-                self.output.theta = np.pad(self.output.theta, (0, csize))  # TODO: verify
-                self.output.step_size = np.pad(self.output.step_size, (0, csize))  # TODO: verify
-                self.output.norm_grad = np.pad(self.output.norm_grad, (0, csize))  # TODO: verify
+                self.output.f = np.pad(self.output.f, (0, csize))
+                self.output.theta = np.pad(self.output.theta, (0, csize))
+                self.output.step_size = np.pad(self.output.step_size, (0, csize))
+                self.output.norm_grad = np.pad(self.output.norm_grad, (0, csize))
 
                 if self.count_ops:
                     # uses : instad of 1 in matlab code. Please check!
-                    self.output.norm_grad = np.pad(self.output.norm_grad, (0, csize))  # TODO: verify
+                    self.output.norm_grad = np.pad(self.output.norm_grad, (0, csize))
 
         if status == "":
             do_break = False
@@ -638,11 +636,6 @@ class ConicSolver:
 
         xy = self.iv.x - self.iv.y
 
-        # self.xy_sq = self.square_norm(xy)
-        # to python from matlab:
-        # xy_sq = tfocs_normsq( max(abs(xy(:)) - eps(max(max(abs(xy(:))), max(abs(x(:)), abs(y(:))))), 0));
-        # FIXME: the argument to square_norm is correct, but the return value itself is wrong
-        
         to_square = np.maximum(np.abs(xy) - np.spacing(np.maximum(np.max(np.abs(xy)), np.maximum(np.abs(self.iv.x), np.abs(self.iv.y)))), 0)
         self.xy_sq = square_norm(to_square)
 
@@ -653,15 +646,12 @@ class ConicSolver:
 
         # to handle numerical issues from the ratio being smaller than machine epsilon
         # force reset
-        # check if this is where it goes awry
-        # todo check square norm
         if self.xy_sq / (square_norm(self.iv.x)) < np.finfo(float).eps:
             counter_Ax = float('inf')
             return True, counter_Ax
 
         if self.iv.g_Ax.size == 0 or np.isinf(self.iv.f_x):
 
-            # TODO:
             # f_x is incorrect
             # check if this is where it goes wrong
             self.iv.f_x, self.iv.g_Ax = self.apply_smooth(self.iv.A_x, grad=1)
@@ -671,7 +661,6 @@ class ConicSolver:
         within_tolerance = abs(self.iv.f_y - self.iv.f_x) >= \
                            self.backtrack_tol * max(max(abs(self.iv.f_x), abs(self.iv.f_y)), 1)
 
-        # .^ is in matlab elementwise power, we represent as **
         self.backtrack_simple = within_tolerance and (abs(self.xy_sq) >= self.backtrack_tol ** 2)
 
         # assuming np.dot is equivalent to tfocs_dot
@@ -695,10 +684,6 @@ class ConicSolver:
         if self.backtrack_simple:
             self.L_local = min(self.L_local, L_local_2)
 
-        # NOTE: that normlimit in nettelblads backtrack is only called from
-        #       code which is already commented out
-        # norm_limit = np.array([abs(xy_sq) / (self.backtrack_tol * max(max(abs(np.dot(x, x)), abs(np.dot(y, y))), 1)))])
-
         self.backtrack_steps += 1
 
         if self.iv.f_x - self.iv.f_y > 0:
@@ -708,8 +693,6 @@ class ConicSolver:
             # should get in here
             return True, counter_Ax  # analogous to break in matlab script?
 
-        # if np.isinf(self.L_local):
-        #    pass
         elif self.L_local == float('inf'):
             self.L_local = self.L
 

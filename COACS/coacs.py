@@ -106,6 +106,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
     # i is outer round
     for i in range(num_rounds):
 
+        print("outer round: ", i)
         # looks ok
         penalty = base_penalty * nzpenalty[i]
 
@@ -165,7 +166,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
             solver.restart = 5e5
             solver.count_ops = True
             solver.print_stop_criterion = True
-            solver.print_every = 100
+            solver.print_every = 2000
             # no regress restart option
             solver.restart = -100000
 
