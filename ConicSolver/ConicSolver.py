@@ -143,6 +143,7 @@ class ConicSolver:
         self.print_header("Auslender & Teboulle's single-projection method")
 
         self.auslander_teboulle()
+        cp.save("x.npy", self.iv.x)
 
         return self.iv.x, self.output
 

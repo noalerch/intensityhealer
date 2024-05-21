@@ -1,5 +1,5 @@
-import numpy as np
 import cupy as cp
+import numpy as np
 import h5py
 import os
 import time
@@ -33,7 +33,7 @@ np.save('../img/test.npy', test_sampling)
 # use this for a more deterministic r
 test_r = cp.asarray(test_sampling.transpose())
 
-rounds = 50
+rounds = 5
 # change to ndarrays?
 qbarrier = np.empty(rounds)
 nzpenalty = np.empty(rounds)
@@ -54,7 +54,7 @@ for i in range(rounds):
     tolval = val * 1e-14
     tols[i] = tolval
 
-numrep = 50
+numrep = 5
 # cell arrays in matlab
 rs = cp.empty((numrep, 256, 256))
 vs = cp.empty((numrep, 256, 256))
