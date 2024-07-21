@@ -33,7 +33,7 @@ np.save('../img/test.npy', test_sampling)
 # use this for a more deterministic r
 test_r = cp.asarray(test_sampling.transpose())
 
-rounds = 5
+rounds = 2
 # change to ndarrays?
 qbarrier = np.empty(rounds)
 nzpenalty = np.empty(rounds)
@@ -52,15 +52,16 @@ for i in range(rounds):
     nzpenalty[i] = nzpval
     iters[i] = 6e2
     tolval = val * 1e-14
-    tols[i] = tolval
+    tols[i] = tolvar
 
-numrep = 5
+numrep = 2
 # cell arrays in matlab
 rs = cp.empty((numrep, 256, 256))
 vs = cp.empty((numrep, 256, 256))
 
 random.seed(0)
 
+cp.cuda.runtime.profilerStart()
 for qq2 in range(numrep):
     banner = print("################## PREP REPLICATE ", qq2)
     r2 = cp.array(np.random.poisson(r3b))
@@ -68,6 +69,7 @@ for qq2 in range(numrep):
     print(type(r2))
     r[cp.where(r >= 0)] = r2[cp.where(r >= 0)]
     rs[qq2] = cp.array(r)
+cp.cuda.runtime.profilerStop()
 
 # save patterns to a dir
 suffix = str(rounds) + str(numrep)
@@ -81,11 +83,12 @@ for qq2 in range(numrep):
     r = rs[qq2]
     tic = time.time()
     v, b = coacs.heal(r, mask, np.zeros((256, 256)), [], 'AT', len(qbarrier), qbarrier, nzpenalty, iters, tols, nowindow)
-
     print("## Finished heal ##")
 
     # TODO: check correctness below
     toc = time.time()
+    with open(f"{path}/{suffix}time.txt", "w") as file:
+        print(f"Replicate {qq2 + 1} Time: {toc-tic:}\n", file=file)
     vs[qq2 - 1] = v
     np.save(f"{path}/vs/rep{qq2 + 1}.npy", v)
     print("Time to finish heal: (seconds)")

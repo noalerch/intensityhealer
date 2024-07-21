@@ -38,7 +38,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
     qbarrier : int?
         qbarrier (2 * l) in each round
     nzpenalty : ??
-        penalty constant outside of the support
+        penalty constant outside the support
     iters : int
         number of TFOCS (solver) iterations within the round
     tolerance : ??
