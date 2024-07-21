@@ -52,7 +52,7 @@ for i in range(rounds):
     nzpenalty[i] = nzpval
     iters[i] = 6e2
     tolval = val * 1e-14
-    tols[i] = tolvar
+    tols[i] = tolval
 
 numrep = 2
 # cell arrays in matlab
