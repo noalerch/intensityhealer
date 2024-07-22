@@ -1,3 +1,4 @@
+import sys
 import cupy as cp
 import numpy as np
 import h5py
@@ -6,8 +7,10 @@ import time
 import coacs
 import random
 from scipy import io
+sys.path.append('/home/stefon/phasehealer/ConicSolver')
+#print(os.getcwd())
+#os.chdir('COACS')
 
-# todo: refactor into functions and perhaps class
 # load complex reference matrix
 f = h5py.File('reference.mat', 'r')
 f2 = io.loadmat('pois2.mat')
@@ -22,6 +25,8 @@ r = cp.array(r_np)
 mask = cp.asarray(f['mask'][:])
 reference = reference['real'] + reference['imag'] * 1j
 
+print(os.getcwd())
+
 # load pattern
 pat = np.load('pattern.npy')
 pat2 = np.load('pattern2.npy')
@@ -33,7 +38,7 @@ np.save('../img/test.npy', test_sampling)
 # use this for a more deterministic r
 test_r = cp.asarray(test_sampling.transpose())
 
-rounds = 2
+rounds = 3
 # change to ndarrays?
 qbarrier = np.empty(rounds)
 nzpenalty = np.empty(rounds)
@@ -54,14 +59,13 @@ for i in range(rounds):
     tolval = val * 1e-14
     tols[i] = tolval
 
-numrep = 2
+numrep = 3
 # cell arrays in matlab
 rs = cp.empty((numrep, 256, 256))
 vs = cp.empty((numrep, 256, 256))
 
 random.seed(0)
 
-cp.cuda.runtime.profilerStart()
 for qq2 in range(numrep):
     banner = print("################## PREP REPLICATE ", qq2)
     r2 = cp.array(np.random.poisson(r3b))
@@ -69,7 +73,6 @@ for qq2 in range(numrep):
     print(type(r2))
     r[cp.where(r >= 0)] = r2[cp.where(r >= 0)]
     rs[qq2] = cp.array(r)
-cp.cuda.runtime.profilerStop()
 
 # save patterns to a dir
 suffix = str(rounds) + str(numrep)
@@ -78,6 +81,7 @@ if not (os.path.exists(path) and os.path.isdir(path)):
     os.mkdir(path)
     os.mkdir(f"{path}/rs")
     os.mkdir(f"{path}/vs")
+#cp.cuda.runtime.profilerStart()
 for qq2 in range(numrep):
     banner = print("################## REPLICATE ", qq2)
     r = rs[qq2]
@@ -93,6 +97,7 @@ for qq2 in range(numrep):
     np.save(f"{path}/vs/rep{qq2 + 1}.npy", v)
     print("Time to finish heal: (seconds)")
     print(toc - tic)
+#cp.cuda.runtime.profilerStop()
 
 
 

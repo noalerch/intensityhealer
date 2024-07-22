@@ -11,10 +11,13 @@ import cupy as cp
 import coacsutils as cu
 import sys
 import h5py
-# sys.path.append('../ConicSolver')
-sys.path.append('../ConicSolver')
-# sys.path.append('~/exjobb/jackdaw/ConicSolver')
-import ConicSolver as cs
+#sys.path.append('../')
+#sys.path.append('../')
+sys.path.append('/home/stefon/phasehealer/')
+#sys.path.append('/home/stefon/phasehealer/*')
+print(sys.path)
+from ConicSolvers import ConicSolver
+#import ConicSolvers as cs
 
 
 # class Healer:
@@ -161,7 +164,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
 
             proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
 
-            solver = cs.ConicSolver()
+            solver = ConicSolver.ConicSolver()
             solver.alg = alg
             solver.restart = 5e5
             solver.count_ops = True
