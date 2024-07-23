@@ -1,8 +1,6 @@
 import math
 import numpy as np
-import cupy as cp
-
-
+#import cupy as cp
 
 # static functions
 # probably useless haha
@@ -143,7 +141,7 @@ class ConicSolver:
         self.print_header("Auslender & Teboulle's single-projection method")
 
         self.auslander_teboulle()
-        cp.save("x.npy", self.iv.x)
+        np.save("x.npy", self.iv.x)
 
         return self.iv.x, self.output
 
@@ -219,8 +217,8 @@ class ConicSolver:
 
                     # UPDATE: moved into here
                     self.iv.f_y = float('inf')
-                    self.iv.g_Ay = cp.array([])
-                    self.iv.g_y = cp.array([])
+                    self.iv.g_Ay = np.array([])
+                    self.iv.g_y = np.array([])
 
                 if self.iv.g_y.size == 0:
                     # initialize g_Ay
@@ -261,8 +259,8 @@ class ConicSolver:
                 self.iv.f_x = float('inf')
 
                 # clear gradients
-                self.iv.g_Ax = cp.array([])
-                self.iv.g_x = cp.array([])
+                self.iv.g_Ax = np.array([])
+                self.iv.g_x = np.array([])
 
                 #
 
@@ -417,9 +415,9 @@ class ConicSolver:
             # unsure of these tfocs_iterate.m lines 60-1
             # TODO: we may run into errors and unexpected behavior
             #       between 0-1 ints, bools, and arrays of bools
-            # cp or np?
-            comp_x = [cp.isinf(self.iv.f_x), need_dual * bool(self.iv.g_Ax.size), cp.isinf(self.iv.C_x)]
-            comp_y = [cp.isinf(self.iv.f_y), need_dual * bool(self.iv.g_Ay.size), cp.isinf(self.iv.C_y)]
+            # np.or np?
+            comp_x = [np.isinf(self.iv.f_x), need_dual * bool(self.iv.g_Ax.size), np.isinf(self.iv.C_x)]
+            comp_y = [np.isinf(self.iv.f_y), need_dual * bool(self.iv.g_Ay.size), np.isinf(self.iv.C_y)]
 
             if sum(comp_x) <= sum(comp_y) or self.stop_criteria_always_use_x:
 
@@ -806,16 +804,16 @@ class IterationVariables:
         # construct common initial values
 
         # x values
-        self.x = cp.array([])  # this never seems to be updated?
-        self.A_x = cp.array([])  # Non-ambiguous output dimensions: A_x = zeros
+        self.x = np.array([])  # this never seems to be updated?
+        self.A_x = np.array([])  # Non-ambiguous output dimensions: A_x = zeros
         # n_smooth = numel(smoothF)
         # assumtion 23-3-29: assume smooth function is singular, i.e. numel(smoothF) = 1
         # output dimensions are a cell array
 
         self.f_x = float('inf')
         self.C_x = float('inf')
-        self.g_x = cp.array([])
-        self.g_Ax = cp.array([])
+        self.g_x = np.array([])
+        self.g_Ax = np.array([])
 
         # attempt 1
         # todo?

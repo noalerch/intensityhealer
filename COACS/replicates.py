@@ -1,5 +1,5 @@
 import sys
-import cupy as cp
+#import cupy as cp
 import numpy as np
 import h5py
 import os
@@ -20,9 +20,9 @@ r3b = f['r3b'][:]
 r_np = f['r'][:]
 
 # convert r_np to cupy array
-r = cp.array(r_np)
+r = np.array(r_np)
 
-mask = cp.asarray(f['mask'][:])
+mask = np.asarray(f['mask'][:])
 reference = reference['real'] + reference['imag'] * 1j
 
 print(os.getcwd())
@@ -36,7 +36,7 @@ test_sampling = f2['r']
 np.save('../img/test.npy', test_sampling)
 
 # use this for a more deterministic r
-test_r = cp.asarray(test_sampling.transpose())
+test_r = np.asarray(test_sampling.transpose())
 
 rounds = 3
 # change to ndarrays?
@@ -61,18 +61,18 @@ for i in range(rounds):
 
 numrep = 3
 # cell arrays in matlab
-rs = cp.empty((numrep, 256, 256))
-vs = cp.empty((numrep, 256, 256))
+rs = np.empty((numrep, 256, 256))
+vs = np.empty((numrep, 256, 256))
 
 random.seed(0)
 
 for qq2 in range(numrep):
     banner = print("################## PREP REPLICATE ", qq2)
-    r2 = cp.array(np.random.poisson(r3b))
+    r2 = np.array(np.random.poisson(r3b))
     print(type(r))
     print(type(r2))
-    r[cp.where(r >= 0)] = r2[cp.where(r >= 0)]
-    rs[qq2] = cp.array(r)
+    r[np.where(r >= 0)] = r2[np.where(r >= 0)]
+    rs[qq2] = np.array(r)
 
 # save patterns to a dir
 suffix = str(rounds) + str(numrep)
@@ -81,7 +81,7 @@ if not (os.path.exists(path) and os.path.isdir(path)):
     os.mkdir(path)
     os.mkdir(f"{path}/rs")
     os.mkdir(f"{path}/vs")
-#cp.cuda.runtime.profilerStart()
+#np.cuda.runtime.profilerStart()
 for qq2 in range(numrep):
     banner = print("################## REPLICATE ", qq2)
     r = rs[qq2]
@@ -97,7 +97,7 @@ for qq2 in range(numrep):
     np.save(f"{path}/vs/rep{qq2 + 1}.npy", v)
     print("Time to finish heal: (seconds)")
     print(toc - tic)
-#cp.cuda.runtime.profilerStop()
+#np.cuda.runtime.profilerStop()
 
 
 

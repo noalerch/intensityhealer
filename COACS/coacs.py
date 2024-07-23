@@ -7,7 +7,6 @@
 #import scipy.fftpack as sfft
 #import scipy as sp
 import numpy as np
-import cupy as cp
 import coacsutils as cu
 import sys
 import h5py
@@ -69,8 +68,8 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
     pattern = pattern.reshape(fullsize, 1).flatten()
 
 
-    mask = cp.concatenate([cp.reshape(support, pshape), cp.zeros(np.reshape(support, pshape).shape)])
-    mask = cp.reshape(mask, (fullsize * 2, ))
+    mask = np.concatenate([np.reshape(support, pshape), np.zeros(np.reshape(support, pshape).shape)])
+    mask = np.reshape(mask, (fullsize * 2, ))
 
     factor = []
     if nowindow:
@@ -79,8 +78,8 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
     else:
         #factor, base_penalty = cu.create_windows(original_pattern, mask, qbarrier[0], np.ones(fullsize))
         factor, base_penalty = cu.create_windows(original_pattern, mask)
-        #factor = cp.asarray(factor)
-        base_penalty = cp.asarray(base_penalty)
+        #factor = np.asarray(factor)
+        base_penalty = np.asarray(base_penalty)
 
     if len(nowindow) == 0:
         nowindow = False
@@ -98,7 +97,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
         init_guess[init_guess < 0] = 0
 
     # move to device
-    x = cp.asarray(init_guess.flatten())
+    x = np.asarray(init_guess.flatten())
     x_prev = x.copy()
     y = x.copy()
     jval = 0
@@ -146,7 +145,7 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
 
                 proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
 
-                f_3 = lambda z: smoothop(cp.asarray(z)) + proxop(our_linp(z - xlevel, 2))
+                f_3 = lambda z: smoothop(np.asarray(z)) + proxop(our_linp(z - xlevel, 2))
 
                 x = y + half_bounded_line_search(y - x_prev_inner, f_3)
             else:
@@ -157,9 +156,9 @@ def heal(pattern, support, bkg, init_guess, alg, num_rounds, qbarrier,
 
 
             # is this correct?
-            diffx = cp.copy(x)
+            diffx = np.copy(x)
 
-            smoothop = cu.diffpoisson(factor, pattern, diffx.flatten(), cp.array(bkg.flatten()), diffx, filter, qbarrier[i])
+            smoothop = cu.diffpoisson(factor, pattern, diffx.flatten(), np.array(bkg.flatten()), diffx, filter, qbarrier[i])
 
 
             proxop, diffxt, level, xlevel = cu.create_proxop(diffx, penalty, our_linp)
@@ -249,13 +248,13 @@ def jackdaw_linop(pattern, filter):
     dims, side2, fullsize, pshape, cshape = cu.get_dims(pattern)
 
     if dims == 3:  # code not reached in coacs
-        r = cp.fftshift(cp.pi / 2 + (cp.arange(0.25, side2 - 0.75) * cp.pi / side2))
-        Xs, Ys, Zs = cp.meshgrid(r, r, r)
-        shifter = cp.exp(1j * (Xs + Ys + Zs))
+        r = np.fftshift(np.pi / 2 + (np.arange(0.25, side2 - 0.75) * np.pi / side2))
+        Xs, Ys, Zs = np.meshgrid(r, r, r)
+        shifter = np.exp(1j * (Xs + Ys + Zs))
 
-        r = cp.linspace(0, -cp.pi + cp.pi / side2, side2)
-        Xs, Ys, Zs = cp.meshgrid(r, r, r)
-        unshifter = cp.exp(1j * (Xs + Ys + Zs))
+        r = np.linspace(0, -np.pi + np.pi / side2, side2)
+        Xs, Ys, Zs = np.meshgrid(r, r, r)
+        unshifter = np.exp(1j * (Xs + Ys + Zs))
     else:
         shifter = 1
         unshifter = 1
@@ -267,43 +266,43 @@ def jackdaw_linop(pattern, filter):
 def linop_helper(x, mode, dims, side, fullsize, pshape, cshape, filter, unshifter, shifter):
     y = None
     if mode == 0:
-        y = cp.array([fullsize, 2 * fullsize])
+        y = np.array([fullsize, 2 * fullsize])
     elif mode == 1:
         x = x.reshape(cshape)
         if dims == 3:
-            x = cp.fft.fftshift(x[0:side, 0:side, 0:side] + 1j * x[0:side, side:side * 2, 0:side])
+            x = np.fft.fftshift(x[0:side, 0:side, 0:side] + 1j * x[0:side, side:side * 2, 0:side])
         else:
             to_shift = x[0:side, :] + 1j * x[side:2*side, :]
             # This looks correct!
-            x = cp.fft.fftshift(to_shift)
+            x = np.fft.fftshift(to_shift)
 
-        x2 = x * cp.conj(shifter)
+        x2 = x * np.conj(shifter)
 
         # looks sorta ok
-        x = cp.fft.fftn(x2) * np.conj(shifter)
+        x = np.fft.fftn(x2) * np.conj(shifter)
 
-        y = (side ** (-dims / 2)) * cp.real(x.flatten()) * filter  # might not work if filter is an array
+        y = (side ** (-dims / 2)) * np.real(x.flatten()) * filter  # might not work if filter is an array
     elif mode == 2:  # 23-11-22 verified for first iteration
-        x2 = cp.zeros(pshape)
-        x2 = cp.real(x) * filter
+        x2 = np.zeros(pshape)
+        x2 = np.real(x) * filter
         x2 = x2.reshape(pshape)
         x2 = x2 * shifter
 
         # i think this is where it gets weird
         #f2 = sp.io.loadmat('/home/noax/jackdaw/COACS/x2.mat')
-        x2 = cp.fft.ifftn(x2)
+        x2 = np.fft.ifftn(x2)
         #asum = sum(sum(x2))
         #num_diff = x2 - f2['x2'].transpose() # numerical differences between matlab and python: very small
 
         # small numerical differences
         x2 = x2 * shifter
-        x2 = cp.fft.ifftshift(x2)
+        x2 = np.fft.ifftshift(x2)
 
         x3 = (side ** (dims / 2)) * x2
-        real_part = cp.real(x3)
-        imag_part = cp.imag(x3)
-        # np or cp?
-        y = cp.concatenate((real_part.ravel(), imag_part.ravel()))
+        real_part = np.real(x3)
+        imag_part = np.imag(x3)
+        # np or np.
+        y = np.concatenate((real_part.ravel(), imag_part.ravel()))
         y = y.reshape((2 * fullsize, 1))
 
         # tiny numerical error
